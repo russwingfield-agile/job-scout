@@ -1,0 +1,35 @@
+{
+  "name": "job-scout",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.21.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @job-scout/web dev",
+    "check": "pnpm typecheck && pnpm lint && pnpm test && pnpm build",
+    "typecheck": "tsc -b",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "pnpm --filter @job-scout/web build",
+    "cf:types": "wrangler types --config apps/worker/wrangler.jsonc apps/worker/worker-configuration.d.ts",
+    "db:generate": "node scripts/not-yet.mjs db:generate M1",
+    "db:migrate:local": "wrangler d1 migrations apply job_scout_db --local --config apps/worker/wrangler.jsonc",
+    "db:migrate:remote": "wrangler d1 migrations apply job_scout_db --remote --config apps/worker/wrangler.jsonc",
+    "seed:local": "node scripts/not-yet.mjs seed:local M4",
+    "run:local": "node scripts/not-yet.mjs run:local M5",
+    "deploy": "pnpm build && pnpm --filter @job-scout/worker exec wrangler deploy"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.8",
+    "@types/node": "26.6.6",
+    "@vitest/coverage-v8": "4.1.12",
+    "typescript": "6.0.3",
+    "vitest": "4.1.12",
+    "wrangler": "4.165.0"
+  }
+}

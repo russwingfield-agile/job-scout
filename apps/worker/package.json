@@ -1,0 +1,15 @@
+{
+  "name": "@job-scout/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@hono/zod-validator": "0.9.1",
+    "@job-scout/shared": "workspace:*",
+    "hono": "4.13.19",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "1.8.5"
+  }
+}

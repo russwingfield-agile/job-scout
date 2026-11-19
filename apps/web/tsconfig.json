@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "../../.tsbuild/web",
+    "tsBuildInfoFile": "../../.tsbuild/web/tsconfig.tsbuildinfo",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "types": ["vite/client", "@testing-library/jest-dom"]
+  },
+  "include": ["src", "test", "vite.config.ts", "vitest.config.ts"],
+  "references": [{ "path": "../../packages/shared" }]
+}

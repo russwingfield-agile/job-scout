@@ -1,0 +1,55 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "job-scout",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "assets": {
+    "directory": "../web/dist/client",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "triggers": { "crons": ["0 * * * *"] },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "job_scout_db",
+      // PLACEHOLDER — replace with the real id from `wrangler d1 create` (see docs/RUNBOOK.md)
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [{ "binding": "CVS", "bucket_name": "job-scout-cvs" }],
+  "vectorize": [{ "binding": "VEC", "index_name": "job-scout-vectors", "remote": true }],
+  "ai": { "binding": "AI", "remote": true },
+  "queues": {
+    "producers": [
+      { "binding": "FETCH_Q", "queue": "fetch-q" },
+      { "binding": "PROCESS_Q", "queue": "process-q" },
+      { "binding": "SCORE_Q", "queue": "score-q" }
+    ],
+    "consumers": [
+      {
+        "queue": "fetch-q",
+        "max_batch_size": 5,
+        "max_retries": 3,
+        "dead_letter_queue": "job-scout-dlq"
+      },
+      {
+        "queue": "process-q",
+        "max_batch_size": 10,
+        "max_retries": 3,
+        "dead_letter_queue": "job-scout-dlq"
+      },
+      {
+        "queue": "score-q",
+        "max_batch_size": 3,
+        "max_concurrency": 2,
+        "max_retries": 3,
+        "dead_letter_queue": "job-scout-dlq"
+      }
+    ]
+  },
+  "vars": { "TZ_NAME": "Europe/London", "DEV_BYPASS_AUTH": "false", "ENV": "production" }
+}
