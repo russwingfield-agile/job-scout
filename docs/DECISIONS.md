@@ -25,3 +25,11 @@ One entry per deviation from the plan/spec or verified external fact. Newest las
 - **ASSUMPTION: `aiDailyNeuronBudget` = 10,000** (Workers AI free daily allocation). Not verified against current Cloudflare pricing; adjust in Settings. Neuron rate table per model is deferred to M7.
 - **Local D1 state.** The Vite plugin is configured with `persistState.path = ../worker/.wrangler/state` so `pnpm dev` and `pnpm db:migrate:local` use the same database. Without it the dev server created its own empty D1 under `apps/web/.wrangler` and every query failed with "no such table".
 - **Vitest runner start.** Integration files run sequentially (`fileParallelism: false`); Vitest hard-codes a 90 s runner-start timeout and parallel workerd boots exceeded it on this machine.
+
+## Hosting (Workers Free plan)
+
+- **Lean `wrangler.jsonc` until needed.** User is on the Workers Free plan. R2, Vectorize and Queues bindings are commented out (with the exact blocks preserved) because a deploy fails when a bound resource is missing and nothing uses them before M4 (R2, Vectorize) and M5 (Queues). Deviation from SPEC §13.1; re-enable per milestone.
+- **Verified (2026-11-19, Cloudflare docs):** Queues are available on Workers Free (10,000 ops/day, 24 h retention); Workers AI gives 10,000 neurons/day on Free (this matches the `aiDailyNeuronBudget` default of 10,000 — the M1 assumption is now confirmed); Workers Free limits are 100k requests/day, 50 subrequests and 10 ms CPU per invocation.
+- **UNVERIFIED:** Vectorize on the Free plan — Cloudflare's pricing page says paid-only while other pages list Free allowances. Confirm before M4. Also check whether 10 ms CPU per invocation is enough for queue consumers (M5); a paid plan may be required then.
+- **Fail-closed auth.** `/api/*` (except `/api/health`) requires a valid Cloudflare Access JWT; with Access unconfigured every such call is 401. `OWNER_EMAIL` optionally restricts to one identity.
+- **`pnpm run deploy`.** `pnpm deploy` is a pnpm built-in; the script must be invoked with `run`. CLAUDE.md's command list shows the short form.

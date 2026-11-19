@@ -20,36 +20,28 @@
       "migrations_dir": "migrations"
     }
   ],
-  "r2_buckets": [{ "binding": "CVS", "bucket_name": "job-scout-cvs" }],
-  "vectorize": [{ "binding": "VEC", "index_name": "job-scout-vectors", "remote": true }],
   "ai": { "binding": "AI", "remote": true },
-  "queues": {
-    "producers": [
-      { "binding": "FETCH_Q", "queue": "fetch-q" },
-      { "binding": "PROCESS_Q", "queue": "process-q" },
-      { "binding": "SCORE_Q", "queue": "score-q" }
-    ],
-    "consumers": [
-      {
-        "queue": "fetch-q",
-        "max_batch_size": 5,
-        "max_retries": 3,
-        "dead_letter_queue": "job-scout-dlq"
-      },
-      {
-        "queue": "process-q",
-        "max_batch_size": 10,
-        "max_retries": 3,
-        "dead_letter_queue": "job-scout-dlq"
-      },
-      {
-        "queue": "score-q",
-        "max_batch_size": 3,
-        "max_concurrency": 2,
-        "max_retries": 3,
-        "dead_letter_queue": "job-scout-dlq"
-      }
-    ]
-  },
+
+  // Bindings below are part of the SPEC §13.1 target config but are NOT enabled yet: a deploy fails
+  // if the resource does not exist, and nothing uses them before the milestone noted. Create the
+  // resource (docs/RUNBOOK.md), uncomment, run `pnpm cf:types`, and log it in docs/DECISIONS.md.
+  //
+  // M4 — CV upload + embeddings:
+  //   "r2_buckets": [{ "binding": "CVS", "bucket_name": "job-scout-cvs" }],
+  //   "vectorize": [{ "binding": "VEC", "index_name": "job-scout-vectors", "remote": true }],
+  //
+  // M5 — ingest pipeline:
+  //   "queues": {
+  //     "producers": [
+  //       { "binding": "FETCH_Q", "queue": "fetch-q" },
+  //       { "binding": "PROCESS_Q", "queue": "process-q" },
+  //       { "binding": "SCORE_Q", "queue": "score-q" }
+  //     ],
+  //     "consumers": [
+  //       { "queue": "fetch-q", "max_batch_size": 5, "max_retries": 3, "dead_letter_queue": "job-scout-dlq" },
+  //       { "queue": "process-q", "max_batch_size": 10, "max_retries": 3, "dead_letter_queue": "job-scout-dlq" },
+  //       { "queue": "score-q", "max_batch_size": 3, "max_concurrency": 2, "max_retries": 3, "dead_letter_queue": "job-scout-dlq" }
+  //     ]
+  //   },
   "vars": { "TZ_NAME": "Europe/London", "DEV_BYPASS_AUTH": "false", "ENV": "production" }
 }

@@ -23,7 +23,7 @@ Read docs/SPEC.md (behaviour) and docs/IMPLEMENTATION_PLAN.md (structure, order)
 - UI: Tailwind, components in components/ui; every async action has loading, error and empty states; optimistic updates with undo for triage actions.
 
 ## Commands
-pnpm dev | pnpm check | pnpm test | pnpm db:generate | pnpm db:migrate:local | pnpm cf:types | pnpm deploy
+pnpm dev | pnpm check | pnpm test | pnpm db:generate | pnpm db:migrate:local | pnpm cf:types | pnpm run deploy
 
 ## Never
 - Scrape websites. Only official APIs/RSS.
