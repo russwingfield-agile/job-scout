@@ -9,7 +9,10 @@ export default defineConfig(async () => {
       cloudflareTest({
         wrangler: { configPath: './wrangler.jsonc' },
         remoteBindings: false,
-        miniflare: { bindings: { TEST_MIGRATIONS: migrations } },
+        // Deterministic test env: do not depend on a developer's local .dev.vars (absent in CI).
+        miniflare: {
+          bindings: { TEST_MIGRATIONS: migrations, ENV: 'dev', DEV_BYPASS_AUTH: 'true' },
+        },
       }),
     ],
     test: {

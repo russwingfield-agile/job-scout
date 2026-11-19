@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { createContainer, type Deps } from '../container.js';
+import { auth } from './middleware/auth.js';
 import { onError, onNotFound } from './middleware/errors.js';
 import { requestId } from './middleware/requestId.js';
 import { healthRoute } from './routes/health.js';
@@ -15,6 +16,7 @@ export function createApp(makeDeps: (env: Env) => Deps = (env) => createContaine
     c.set('deps', makeDeps(c.env));
     await next();
   });
+  api.use('*', auth);
   api.onError(onError);
   api.notFound(onNotFound);
 
