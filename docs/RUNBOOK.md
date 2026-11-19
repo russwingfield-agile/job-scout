@@ -18,6 +18,8 @@ pnpm check                                                # typecheck + lint + t
 
 ## Cloudflare hosting (Workers Free plan)
 
+Live site: https://job-scout.russ-wingfield.workers.dev (first deployed 2026-11-19).
+
 Currently enabled bindings: **D1** (`DB`) and **Workers AI** (`AI`). R2, Vectorize and Queues are
 commented out in `apps/worker/wrangler.jsonc` until the milestone that needs them (M4 and M5), because a
 deploy fails if a bound resource does not exist.
