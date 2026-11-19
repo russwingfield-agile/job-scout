@@ -1,6 +1,25 @@
 import { Hono } from 'hono';
+import { createContainer, type Deps } from '../container.js';
+import { onError, onNotFound } from './middleware/errors.js';
+import { requestId } from './middleware/requestId.js';
 import { healthRoute } from './routes/health.js';
+import { settingsRoute } from './routes/settings.js';
+import type { AppEnv } from './types.js';
 
-export const app = new Hono().basePath('/api').route('/health', healthRoute);
+/** `makeDeps` lets tests inject fakes; production builds the container from the Worker env. */
+export function createApp(makeDeps: (env: Env) => Deps = (env) => createContainer(env)) {
+  const api = new Hono<AppEnv>().basePath('/api');
 
+  api.use('*', requestId);
+  api.use('*', async (c, next) => {
+    c.set('deps', makeDeps(c.env));
+    await next();
+  });
+  api.onError(onError);
+  api.notFound(onNotFound);
+
+  return api.route('/health', healthRoute).route('/settings', settingsRoute);
+}
+
+export const app = createApp();
 export type AppType = typeof app;

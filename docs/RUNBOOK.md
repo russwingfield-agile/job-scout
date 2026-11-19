@@ -7,6 +7,7 @@ Skeleton — filled out progressively; completed in M10.
 ```sh
 pnpm install
 cp apps/worker/.dev.vars.example apps/worker/.dev.vars   # then add REED_API_KEY
+pnpm db:migrate:local                                        # create/upgrade the local D1 (run once, and after new migrations)
 pnpm dev                                                  # http://localhost:5173 (needs `wrangler login`; or `REMOTE_BINDINGS=false pnpm dev` offline)
 pnpm check                                                # typecheck + lint + test + build
 ```

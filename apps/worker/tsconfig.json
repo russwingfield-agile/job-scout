@@ -4,7 +4,7 @@
     "outDir": "../../.tsbuild/worker",
     "tsBuildInfoFile": "../../.tsbuild/worker/tsconfig.tsbuildinfo",
     "lib": ["ES2022"],
-    "types": ["@cloudflare/vitest-plugin", "node"]
+    "types": ["@cloudflare/vitest-plugin/types", "node"]
   },
   "include": ["src", "test", "worker-configuration.d.ts", "vitest.*.config.ts"],
   "references": [{ "path": "../../packages/shared" }]
