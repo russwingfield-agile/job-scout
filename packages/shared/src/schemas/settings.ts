@@ -104,6 +104,8 @@ export const BlocklistSettingsSchema = z.object({
 
 export const WorkingSettingsSchema = z.object({
   workingDaysPerYear: z.number().int().min(100).max(260),
+  /** Used to annualise hourly rates (hour × hoursPerDay × workingDaysPerYear). */
+  hoursPerDay: z.number().min(1).max(24),
 });
 
 export const RetentionSettingsSchema = z.object({

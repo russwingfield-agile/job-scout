@@ -77,7 +77,7 @@ export const DEFAULT_SETTINGS: Settings = {
     fullTextCvCount: 2,
   },
   blocklist: { employers: [], agencies: [], keywords: [] },
-  working: { workingDaysPerYear: 220 },
+  working: { workingDaysPerYear: 220, hoursPerDay: 8 },
   retention: { filteredDays: 30 },
   cvs: {
     maxActive: 4,

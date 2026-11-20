@@ -39,3 +39,21 @@ One entry per deviation from the plan/spec or verified external fact. Newest las
 - **Access is enabled from the Worker's Domains & Routes settings**, not as a self-hosted Access application (workers.dev is not a zone in the account). With "All traffic", `/api/health` is also behind Access; the Worker's own `/api/health` exemption only matters for local/dev or a future custom domain.
 - **Verified:** unauthenticated requests to `/`, `/inbox`, `/api/settings` and `/api/health` return 302 to `<team>.cloudflareaccess.com`; after sign-in the site and `/api/settings` work (confirmed by the owner). Worker secrets `ACCESS_AUD`, `ACCESS_TEAM_DOMAIN`, `OWNER_EMAIL` are set.
 - **API token** `job-scout-github-deploy` (Workers Scripts Edit, Account Settings Read, D1 Edit) is stored only as a GitHub Actions secret. Rotate it and update the secret before it expires.
+
+## M2
+
+- **Reed fixtures are synthetic.** The five files in `apps/worker/test/fixtures/reed/` are hand-written to match SPEC §4.1, not recorded from the live API. M3 records real responses and must re-check every field name below; replace or supplement these then.
+- **ASSUMPTION (verify in M3): Reed dates are day-first (`dd/MM/yyyy`)**, as I recall from the real API, not ISO as SPEC §4.1 implies. `parseSourceDate` accepts both. Also unverified: `salary` / `salaryType` text on `jobs/{id}`, `applicationCount` vs `applications`, `datePosted` vs `date`. The shared `ReedJobDetailsSchema` is loose so a mismatch degrades parsing rather than failing.
+- **`ReedJobDetailsSchema` lives in `packages/shared`** (not an adapter) because `core/normalise.ts` must stay free of adapter imports. `NormaliseContext` gained `now: Date` (fallback posted date) so normalisation stays pure.
+- **New setting `working.hoursPerDay` (default 8)** for annualising hourly rates; M1 only had `workingDaysPerYear`.
+- **Pay parsing rules** (`core/parse/pay.ts`):
+  - Confidence is `high` (explicit period), `medium` (period inferred from size), `low` (amount but period unknowable) or `none`.
+  - Inference follows SPEC §4.4: ≥ £10,000 is a year; below £2,000 is a day rate for contract/temp/unknown — and, my refinement, an hourly rate below £100; permanent amounts under £2,000 stay `unknown`; £2,000–£9,999 is `unknown`.
+  - "up to £X" gives max only. A single figure sets min = max. A reversed range is swapped. A k-suffixed partner scales a bare number under 1,000 ("80-95k").
+  - Bare numbers ("2 days a week") count only when a period keyword follows them directly, so day counts and years of experience are not read as pay; `£`/`k` amounts may find their period within ~25 characters.
+  - Reed's structured min/max are used only when the text has no amount. A rate quoted in the advert body is used only with an explicit period (`high`), never from magnitude, to avoid "£50m turnover" false positives.
+- **IR35:** contradictory wording ("outside IR35 … some roles inside IR35") and undecided wording ("TBC") return `unknown` so the hard filter passes the job (SPEC §7.1). PAYE/umbrella leans inside (`medium`); "Ltd company" leans outside (`low`). Permanent roles get no IR35 value.
+- **Work mode:** stated office days win over keywords (≥ 5 days = onsite, otherwise hybrid); monthly figures are converted to days per week (1 day/month ≈ 0.23). Plain "onsite" alone is `low` confidence. These regexes are a first pass for the LLM to refine.
+- **Titles:** "Lead" counts as seniority only as the first word, so "Delivery Lead" keeps its role word. `tokenSetRatio` follows the fuzzywuzzy method (subset ⇒ 1.0); the dedupe step (M6) also requires cosine ≥ 0.92.
+- **Coverage gate.** `pnpm test:coverage` (part of `pnpm check`) enforces 100% on `core/parse/**` and ≥ 90% elsewhere in `core/`, measured on the `worker-unit` project (the Workers pool does not support v8 coverage). Coverage config must live in the root `vitest.config.ts`.
+- **Parser constants.** The magnitude thresholds (10,000 / 2,000 / 100 / 1,000) are named constants in `pay.ts`, not settings: they define how a number is read, not how a job is ranked.

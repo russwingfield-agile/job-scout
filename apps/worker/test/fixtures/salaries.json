@@ -1,0 +1,257 @@
+[
+  {
+    "input": "£550 - £650 per day",
+    "expected": { "min": 550, "max": 650, "period": "day", "confidence": "high" }
+  },
+  {
+    "input": "£550-650pd",
+    "expected": { "min": 550, "max": 650, "period": "day", "confidence": "high" }
+  },
+  {
+    "input": "£600/day",
+    "expected": { "min": 600, "max": 600, "period": "day", "confidence": "high" }
+  },
+  {
+    "input": "up to £700 p/d",
+    "expected": { "min": null, "max": 700, "period": "day", "confidence": "high" }
+  },
+  {
+    "input": "£45 per hour",
+    "expected": { "min": 45, "max": 45, "period": "hour", "confidence": "high" }
+  },
+  {
+    "input": "£45ph",
+    "expected": { "min": 45, "max": 45, "period": "hour", "confidence": "high" }
+  },
+  {
+    "input": "£80,000 - £90,000 per annum",
+    "expected": { "min": 80000, "max": 90000, "period": "year", "confidence": "high" }
+  },
+  {
+    "input": "£85k",
+    "expected": { "min": 85000, "max": 85000, "period": "year", "confidence": "medium" }
+  },
+  {
+    "input": "£80k-£95k + bonus",
+    "expected": { "min": 80000, "max": 95000, "period": "year", "confidence": "medium" }
+  },
+  {
+    "input": "Competitive",
+    "expected": { "min": null, "max": null, "period": "unknown", "confidence": "none" }
+  },
+  {
+    "input": "Market rate",
+    "expected": { "min": null, "max": null, "period": "unknown", "confidence": "none" }
+  },
+  {
+    "input": "negotiable",
+    "expected": { "min": null, "max": null, "period": "unknown", "confidence": "none" }
+  },
+  {
+    "input": "DOE",
+    "expected": { "min": null, "max": null, "period": "unknown", "confidence": "none" }
+  },
+  {
+    "input": "£500 - £550 per day Outside IR35",
+    "expected": { "min": 500, "max": 550, "period": "day", "confidence": "high" }
+  },
+  {
+    "input": "£550 – £650 per day",
+    "expected": { "min": 550, "max": 650, "period": "day", "confidence": "high" }
+  },
+  {
+    "input": "£550 — £650 p/d",
+    "expected": { "min": 550, "max": 650, "period": "day", "confidence": "high" }
+  },
+  {
+    "input": "550-650 per day",
+    "expected": { "min": 550, "max": 650, "period": "day", "confidence": "high" }
+  },
+  {
+    "input": "£70k pa",
+    "expected": { "min": 70000, "max": 70000, "period": "year", "confidence": "high" }
+  },
+  {
+    "input": "£70,000 p.a.",
+    "expected": { "min": 70000, "max": 70000, "period": "year", "confidence": "high" }
+  },
+  {
+    "input": "£65k - £75k per annum",
+    "expected": { "min": 65000, "max": 75000, "period": "year", "confidence": "high" }
+  },
+  {
+    "input": "80-95k",
+    "expected": { "min": 80000, "max": 95000, "period": "year", "confidence": "medium" }
+  },
+  {
+    "input": "£80k-95",
+    "expected": { "min": 80000, "max": 95000, "period": "year", "confidence": "medium" }
+  },
+  {
+    "input": "£600",
+    "hints": { "employmentType": "contract" },
+    "expected": { "min": 600, "max": 600, "period": "day", "confidence": "medium" }
+  },
+  {
+    "input": "£45",
+    "hints": { "employmentType": "contract" },
+    "expected": { "min": 45, "max": 45, "period": "hour", "confidence": "medium" }
+  },
+  {
+    "input": "£600",
+    "hints": { "employmentType": "permanent" },
+    "expected": { "min": 600, "max": 600, "period": "unknown", "confidence": "low" }
+  },
+  {
+    "input": "£5,000",
+    "expected": { "min": 5000, "max": 5000, "period": "unknown", "confidence": "low" }
+  },
+  {
+    "input": "£1,200 per day",
+    "expected": { "min": 1200, "max": 1200, "period": "day", "confidence": "high" }
+  },
+  {
+    "input": "£75 per hour",
+    "expected": { "min": 75, "max": 75, "period": "hour", "confidence": "high" }
+  },
+  {
+    "input": "£450 to £500 per day",
+    "expected": { "min": 450, "max": 500, "period": "day", "confidence": "high" }
+  },
+  {
+    "input": "£45.50 per hour",
+    "expected": { "min": 45.5, "max": 45.5, "period": "hour", "confidence": "high" }
+  },
+  {
+    "input": "£350 - £400 a day",
+    "expected": { "min": 350, "max": 400, "period": "day", "confidence": "high" }
+  },
+  {
+    "input": "£60,000 - £70,000 per year",
+    "expected": { "min": 60000, "max": 70000, "period": "year", "confidence": "high" }
+  },
+  {
+    "input": "£500 per day + expenses",
+    "expected": { "min": 500, "max": 500, "period": "day", "confidence": "high" }
+  },
+  {
+    "input": "£500 pd inside IR35",
+    "expected": { "min": 500, "max": 500, "period": "day", "confidence": "high" }
+  },
+  {
+    "input": "Day rate: £550",
+    "expected": { "min": 550, "max": 550, "period": "day", "confidence": "high" }
+  },
+  {
+    "input": "£400-£450 daily",
+    "expected": { "min": 400, "max": 450, "period": "day", "confidence": "high" }
+  },
+  {
+    "input": "£55 per hr",
+    "expected": { "min": 55, "max": 55, "period": "hour", "confidence": "high" }
+  },
+  {
+    "input": "£80k - £90k basic + bonus",
+    "expected": { "min": 80000, "max": 90000, "period": "year", "confidence": "medium" }
+  },
+  {
+    "input": "£50,000 - £60,000 + bonus + benefits",
+    "expected": { "min": 50000, "max": 60000, "period": "year", "confidence": "medium" }
+  },
+  {
+    "input": "up to £95,000 per annum",
+    "expected": { "min": null, "max": 95000, "period": "year", "confidence": "high" }
+  },
+  {
+    "input": "GBP 550 per day",
+    "expected": { "min": 550, "max": 550, "period": "day", "confidence": "high" }
+  },
+  {
+    "input": "£550 per day (approx £121,000 per annum)",
+    "expected": { "min": 550, "max": 550, "period": "day", "confidence": "high" }
+  },
+  {
+    "input": "6 months at £550/day",
+    "expected": { "min": 550, "max": 550, "period": "day", "confidence": "high" }
+  },
+  {
+    "input": "IR35 outside, £500 pd",
+    "expected": { "min": 500, "max": 500, "period": "day", "confidence": "high" }
+  },
+  {
+    "input": "£50 - £60 per hour",
+    "expected": { "min": 50, "max": 60, "period": "hour", "confidence": "high" }
+  },
+  {
+    "input": "Negotiable £500-£600 per day",
+    "expected": { "min": 500, "max": 600, "period": "day", "confidence": "high" }
+  },
+  {
+    "input": "",
+    "expected": { "min": null, "max": null, "period": "unknown", "confidence": "none" }
+  },
+  {
+    "input": "£0 per day",
+    "expected": { "min": null, "max": null, "period": "unknown", "confidence": "none" }
+  },
+  {
+    "input": "2 days a week in the office, £500 per day",
+    "expected": { "min": 500, "max": 500, "period": "day", "confidence": "high" }
+  },
+  {
+    "input": "Salary: £85,000",
+    "expected": { "min": 85000, "max": 85000, "period": "year", "confidence": "medium" }
+  },
+  {
+    "input": "£16.50 per hour",
+    "expected": { "min": 16.5, "max": 16.5, "period": "hour", "confidence": "high" }
+  },
+  {
+    "input": "£600 per day outside IR35, 6 month contract",
+    "expected": { "min": 600, "max": 600, "period": "day", "confidence": "high" }
+  },
+  {
+    "input": "£82.5k",
+    "expected": { "min": 82500, "max": 82500, "period": "year", "confidence": "medium" }
+  },
+  {
+    "input": "£700-£600 per day",
+    "expected": { "min": 600, "max": 700, "period": "day", "confidence": "high" }
+  },
+  {
+    "input": "between £500 and £600 per day",
+    "expected": { "min": 500, "max": 600, "period": "day", "confidence": "high" }
+  },
+  {
+    "input": "£55,000 per annum pro rata",
+    "expected": { "min": 55000, "max": 55000, "period": "year", "confidence": "high" }
+  },
+  {
+    "input": "5 days a week, 10 years experience",
+    "expected": { "min": null, "max": null, "period": "unknown", "confidence": "none" }
+  },
+  {
+    "input": "Competitive",
+    "hints": { "employmentType": "contract", "minHint": 550, "maxHint": 650 },
+    "expected": { "min": 550, "max": 650, "period": "day", "confidence": "medium" }
+  },
+  {
+    "input": "",
+    "hints": { "employmentType": "permanent", "maxHint": 90000 },
+    "expected": { "min": null, "max": 90000, "period": "year", "confidence": "medium" }
+  },
+  {
+    "input": "",
+    "hints": { "minHint": 0, "maxHint": null },
+    "expected": { "min": null, "max": null, "period": "unknown", "confidence": "none" }
+  },
+  {
+    "input": "550 pd",
+    "hints": { "requireCurrency": true },
+    "expected": { "min": null, "max": null, "period": "unknown", "confidence": "none" }
+  },
+  {
+    "input": "550 pd",
+    "expected": { "min": 550, "max": 550, "period": "day", "confidence": "high" }
+  }
+]

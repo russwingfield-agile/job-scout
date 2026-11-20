@@ -5,4 +5,5 @@ export * from './schemas/enums.js';
 export * from './schemas/health.js';
 export * from './schemas/job.js';
 export * from './schemas/profile.js';
+export * from './schemas/reed.js';
 export * from './schemas/settings.js';

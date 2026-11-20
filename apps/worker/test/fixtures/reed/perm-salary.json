@@ -1,0 +1,21 @@
+{
+  "jobId": 51000003,
+  "employerId": 7002,
+  "employerName": "Northfield Insurance",
+  "jobTitle": "Senior Scrum Master",
+  "locationName": "Leeds",
+  "minimumSalary": 60000,
+  "maximumSalary": 70000,
+  "yearlyMinimumSalary": 60000,
+  "yearlyMaximumSalary": 70000,
+  "currency": "GBP",
+  "salary": "£60,000 - £70,000 per annum",
+  "salaryType": "per annum",
+  "expirationDate": "15/01/2027",
+  "date": "18/11/2026",
+  "jobDescription": "<h2>About the role</h2><p>Permanent role with a hybrid pattern of 3 days per week on site.</p><p>25 days holiday, pension and private healthcare.</p>",
+  "applicationCount": 41,
+  "jobUrl": "https://www.reed.co.uk/jobs/senior-scrum-master/51000003",
+  "contractType": "Permanent",
+  "jobType": "Full-time"
+}

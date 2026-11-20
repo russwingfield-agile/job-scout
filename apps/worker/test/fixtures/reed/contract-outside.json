@@ -1,0 +1,19 @@
+{
+  "jobId": 51000001,
+  "employerId": 9001,
+  "employerName": "Brightpath Recruitment",
+  "jobTitle": "Agile Coach - Transformation Programme (6 Month Contract) - London",
+  "locationName": "London",
+  "minimumSalary": 550,
+  "maximumSalary": 650,
+  "currency": "GBP",
+  "salary": "£550 - £650 per day",
+  "expirationDate": "31/12/2026",
+  "date": "12/11/2026",
+  "jobDescription": "<p><strong>Agile Coach</strong> required for a major retail bank&#39;s transformation programme.</p><ul><li>Coach 6 SAFe Agile Release Trains</li><li>Hybrid working: 2 days a week in the office</li></ul><p>This role is <b>Outside IR35</b>. 6 month initial contract with likely extension.</p>",
+  "applicationCount": 14,
+  "jobUrl": "https://www.reed.co.uk/jobs/agile-coach/51000001",
+  "externalUrl": "https://brightpath.example/jobs/ac-114",
+  "contractType": "Contract",
+  "jobType": "Full-time"
+}

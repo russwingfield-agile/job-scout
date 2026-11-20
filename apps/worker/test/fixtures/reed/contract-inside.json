@@ -1,0 +1,15 @@
+{
+  "jobId": 51000002,
+  "employerName": "Acme Public Sector Ltd",
+  "jobTitle": "Delivery Manager",
+  "locationName": "Manchester",
+  "minimumSalary": 450,
+  "maximumSalary": 480,
+  "currency": "GBP",
+  "salary": "£450 - £480 per day Inside IR35",
+  "expirationDate": "2026-12-30T00:00:00Z",
+  "datePosted": "2026-11-17T09:30:00Z",
+  "jobDescription": "<p>SC cleared Delivery Manager for a central government department.</p><p>Inside IR35 (umbrella). 12 month contract. On site 5 days a week.</p>",
+  "applications": 3,
+  "contractType": "Contract"
+}
