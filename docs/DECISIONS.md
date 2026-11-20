@@ -93,3 +93,8 @@ Verified with a real key (Basic auth, key as username, empty password). Recorded
 - **Embedding model is fixed at container construction** from `DEFAULT_SETTINGS.models`: changing it would invalidate every stored vector, so it is deliberately not hot-swappable through Settings.
 - **The web app uses `fetch` + shared Zod schemas, not the Hono RPC client** the plan names: importing the Worker's types into the web project would pull Cloudflare globals into a DOM project. Response shapes are still validated against the shared schemas, so client and server cannot drift silently.
 - **Embedding text** is the summary's headline, seniority, skills, sectors and roles followed by the CV text, truncated to 2,000 characters (≈500 tokens, SPEC §3.3).
+
+### M4 follow-up (2026-11-20)
+
+- **Vectorize filtering moved into the adapter.** Server-side filters need metadata indexes created up front with the Wrangler CLI (`create-metadata-index`), which is fragile to run and impossible to add after vectors exist. `VectorizeStore.query` now over-fetches (4× `topK`, capped at Vectorize's 20-match limit when metadata is requested) and filters by `kind` and `postedTsGte` locally. Same results for our tiny neighbour sets; no CLI step. Metadata is still written (`kind`, `posted_ts`, `group_id`), so server-side indexes can be added later if volumes ever need them. The `posted_ts`/`kind` index step is removed from the setup docs.
+- **Setup is dashboard-only.** The project owner is not technical: operational steps are written as dashboard clicks, not terminal commands.

@@ -301,17 +301,10 @@ describe('VectorizeStore', () => {
     ]);
   });
 
-  it('builds the Vectorize filter and maps matches back', async () => {
+  it('maps matches back, and asks for metadata but sends no server-side filter', async () => {
     const { index, calls } = fakeIndex();
-    const store = new VectorizeStore(index);
-    const matches = await store.query([1, 2], {
-      topK: 5,
-      filter: { kind: 'job', postedTsGte: 99 },
-    });
-    expect(calls[0]?.args).toEqual([
-      [1, 2],
-      { topK: 5, returnMetadata: 'all', filter: { kind: 'job', posted_ts: { $gte: 99 } } },
-    ]);
+    const matches = await new VectorizeStore(index).query([1, 2], { topK: 5 });
+    expect(calls[0]?.args).toEqual([[1, 2], { topK: 5, returnMetadata: 'all' }]);
     expect(matches).toEqual([
       {
         id: 'job:1',
@@ -323,19 +316,28 @@ describe('VectorizeStore', () => {
     ]);
   });
 
-  it('sends no filter when none is given, and supports partial filters', async () => {
+  it('filters by kind and posting date locally, keeping the best matches in order', async () => {
+    const { index } = fakeIndex();
+    const store = new VectorizeStore(index);
+    const ids = async (filter: Parameters<typeof store.query>[1]['filter'], topK = 5) =>
+      (await store.query([1], { topK, filter })).map((m) => m.id);
+
+    expect(await ids({})).toEqual(['job:1', 'cv:1', 'x']);
+    expect(await ids({ kind: 'cv' })).toEqual(['cv:1']);
+    expect(await ids({ kind: 'job' })).toEqual(['job:1', 'x']);
+    // "x" has no posting time (treated as 0), so a recency cut-off drops it.
+    expect(await ids({ postedTsGte: 1_600_000_000_000 })).toEqual(['job:1', 'cv:1'].slice(0, 1));
+    expect(await ids({ kind: 'job' }, 1)).toEqual(['job:1']);
+  });
+
+  it('over-fetches when filtering (capped at Vectorize\x27s metadata limit) and not otherwise', async () => {
     const { index, calls } = fakeIndex();
     const store = new VectorizeStore(index);
-    await store.query([1], { topK: 1 });
-    await store.query([1], { topK: 1, filter: {} });
-    await store.query([1], { topK: 1, filter: { kind: 'cv' } });
-    await store.query([1], { topK: 1, filter: { postedTsGte: 7 } });
-    expect(calls.map((c) => (c.args[1] as { filter?: unknown }).filter)).toEqual([
-      undefined,
-      {},
-      { kind: 'cv' },
-      { posted_ts: { $gte: 7 } },
-    ]);
+    await store.query([1], { topK: 3 });
+    await store.query([1], { topK: 3, filter: { kind: 'job' } });
+    await store.query([1], { topK: 10, filter: { kind: 'job' } });
+    await store.query([1], { topK: 50 });
+    expect(calls.map((c) => (c.args[1] as { topK: number }).topK)).toEqual([3, 12, 20, 20]);
   });
 
   it('returns plain number arrays and skips vectors without values', async () => {
