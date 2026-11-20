@@ -1,6 +1,7 @@
 import type { EmploymentType, NormalisedJob, SearchProfile } from '@job-scout/shared';
 import { recordAiUsage } from '../ai/usage.js';
 import { canSpendReed } from '../core/budget.js';
+import { olderGroup } from '../core/dedupe.js';
 import { jobEmbeddingText } from '../core/embedText.js';
 import { evaluateAcrossProfiles } from '../core/filters.js';
 import { approxTokens } from '../core/neurons.js';
@@ -10,6 +11,7 @@ import { cosine } from '../core/vectors.js';
 import type { JobPatch } from '../db/repos/jobs.js';
 import { AppError } from '../lib/errors.js';
 import { dayKey, toIso } from '../lib/time.js';
+import { findDuplicate, joinGroup, refreshCanonical } from './dedupeJob.js';
 import type { ProcessMessage } from './messages.js';
 import type { PipelineDeps } from './startRun.js';
 
@@ -121,23 +123,22 @@ export async function processJob(deps: PipelineDeps, msg: ProcessMessage): Promi
   // 3. Hard filters: a job passes if it passes for any profile that found it.
   const filter = evaluateAcrossProfiles(normalised, finders, settings.blocklist, settings.working);
 
-  // 4. Group (one per job until M6 adds de-duplication). Created even when filtered, so the job
-  //    stays visible under "show filtered" with its reason.
-  let groupId = job.groupId;
-  if (!groupId) {
-    groupId = crypto.randomUUID();
-    await repos.groups.insert({
-      id: groupId,
-      canonicalJobId: job.id,
-      status: filter.pass ? 'prefiltered' : 'filtered',
-      firstSeenAt: now,
-      lastSeenAt: now,
-      runId: msg.runId,
-    });
-    await repos.jobs.update(job.id, { groupId });
-  }
-
+  // 4. Failed filters: the job keeps a group of its own, so it stays visible under "show filtered"
+  //    with its reason. (Only passing jobs are compared with others for duplicates.)
   if (!filter.pass) {
+    let filteredGroupId = job.groupId;
+    if (!filteredGroupId) {
+      filteredGroupId = crypto.randomUUID();
+      await repos.groups.insert({
+        id: filteredGroupId,
+        canonicalJobId: job.id,
+        status: 'filtered',
+        firstSeenAt: now,
+        lastSeenAt: now,
+        runId: msg.runId,
+      });
+      await repos.jobs.update(job.id, { groupId: filteredGroupId });
+    }
     await repos.jobs.update(job.id, {
       filterReason: filter.reasons.join('; '),
       stage: 'processed',
@@ -146,7 +147,7 @@ export async function processJob(deps: PipelineDeps, msg: ProcessMessage): Promi
     return;
   }
 
-  // 5. Embed the job so it can be compared with the CVs (and, in M6, with other jobs).
+  // 5. Embed the job so it can be compared with the CVs and with other postings.
   const text = jobEmbeddingText({
     title: normalised.title,
     employerName: normalised.employerName,
@@ -166,15 +167,67 @@ export async function processJob(deps: PipelineDeps, msg: ProcessMessage): Promi
     inTokens: approxTokens(text),
     outTokens: 0,
   });
-  await vectors.upsert([
+  const vectorMeta = { kind: 'job' as const, postedTs: Date.parse(normalised.postedAt) };
+
+  // 6. Group: join the group of the same role posted elsewhere, or start one (SPEC §8).
+  const annual = annualise(
     {
-      id: `job:${job.id}`,
-      values: vector,
-      metadata: { kind: 'job', postedTs: Date.parse(normalised.postedAt), groupId },
+      min: normalised.payMin ?? null,
+      max: normalised.payMax ?? null,
+      period: normalised.payPeriod,
     },
+    settings.working,
+  );
+  const comparable = {
+    id: job.id,
+    title: normalised.title,
+    location: normalised.location,
+    annualisedMin: annual.min,
+    annualisedMax: annual.max,
+  };
+  let groupId = job.groupId;
+  if (!groupId) {
+    const dup = await findDuplicate(deps, comparable, vector);
+    if (dup) {
+      await joinGroup(deps, { jobId: job.id, groupId: dup.groupId, now });
+      await vectors.upsert([
+        { id: `job:${job.id}`, values: vector, metadata: { ...vectorMeta, groupId: dup.groupId } },
+      ]);
+      await repos.jobs.update(job.id, { stage: 'processed' });
+      await repos.runs.bumpCount(msg.runId, 'dupes', 1);
+      return; // the group already has its scores
+    }
+    groupId = crypto.randomUUID();
+    await repos.groups.insert({
+      id: groupId,
+      canonicalJobId: job.id,
+      status: 'prefiltered',
+      firstSeenAt: now,
+      lastSeenAt: now,
+      runId: msg.runId,
+    });
+    await repos.jobs.update(job.id, { groupId });
+  }
+  await vectors.upsert([
+    { id: `job:${job.id}`, values: vector, metadata: { ...vectorMeta, groupId } },
   ]);
 
-  // 6. Similarity to each active CV, then the prefilter score.
+  // Two postings of one role processed at the same moment may each have started a group. Look
+  // again now that this vector is stored: if an older group is the same role, fold into it.
+  const rival = await findDuplicate(deps, comparable, vector);
+  if (rival && rival.groupId !== groupId) {
+    const ours = await repos.groups.getById(groupId);
+    const theirs = await repos.groups.getById(rival.groupId);
+    if (ours && theirs && olderGroup(theirs, ours) === 'a') {
+      await repos.groups.mergeInto(theirs.id, ours.id);
+      await refreshCanonical(deps, theirs.id);
+      await repos.jobs.update(job.id, { stage: 'processed' });
+      await repos.runs.bumpCount(msg.runId, 'dupes', 1);
+      return;
+    }
+  }
+
+  // 7. Similarity to each active CV, then the prefilter score.
   const activeCvs = (await repos.cvs.list()).filter((cv) => cv.active);
   const cvVectors = await vectors.getByIds(activeCvs.map((cv) => `cv:${cv.id}`));
   const similarities = cvVectors.map((v) => ({

@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, isNull, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNotNull, isNull, ne, or, sql } from 'drizzle-orm';
 import type { Db } from '../client.js';
 import { jobProfileHits, jobs } from '../schema.js';
 
@@ -80,6 +80,33 @@ export function jobsRepo(db: Db) {
           .set({ stage: 'processed', filterReason: reason })
           .where(inArray(jobs.id, batch));
       }
+    },
+
+    /**
+     * Passing, grouped postings from the last while: the pool a new posting is compared with.
+     * Only the fields needed to compare; capped so one query stays small.
+     */
+    async listDedupeCandidates(postedAfter: string, excludeId: string, limit: number) {
+      return db
+        .select({
+          id: jobs.id,
+          groupId: jobs.groupId,
+          title: jobs.title,
+          location: jobs.location,
+          annualisedMin: jobs.annualisedMin,
+          annualisedMax: jobs.annualisedMax,
+        })
+        .from(jobs)
+        .where(
+          and(
+            isNotNull(jobs.groupId),
+            isNull(jobs.filterReason),
+            ne(jobs.id, excludeId),
+            gte(jobs.postedAt, postedAfter),
+          ),
+        )
+        .orderBy(desc(jobs.postedAt))
+        .limit(limit);
     },
 
     /** Delete jobs that never joined a group (seen-only, too old, gone), with their hits. Returns their ids. */

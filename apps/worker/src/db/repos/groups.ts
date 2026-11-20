@@ -1,7 +1,15 @@
 import type { GroupStatus } from '@job-scout/shared';
 import { and, asc, count, desc, eq, inArray, lt, sql } from 'drizzle-orm';
 import type { Db } from '../client.js';
-import { assessments, cvs, jobCvSimilarity, jobGroups, jobProfileHits, jobs } from '../schema.js';
+import {
+  assessments,
+  cvs,
+  jobCvSimilarity,
+  jobGroups,
+  jobProfileHits,
+  jobs,
+  vectors,
+} from '../schema.js';
 
 export type GroupRow = typeof jobGroups.$inferSelect;
 export type NewGroup = typeof jobGroups.$inferInsert;
@@ -93,6 +101,33 @@ export function groupsRepo(db: Db) {
         .from(jobCvSimilarity)
         .where(eq(jobCvSimilarity.groupId, groupId))
         .orderBy(desc(jobCvSimilarity.similarity), asc(jobCvSimilarity.cvId));
+    },
+
+    /** A posting joined this group: bump `last_seen_at`, and the "since you acted" count if actioned. */
+    async notePosting(id: string, now: string, actioned: boolean): Promise<void> {
+      await db
+        .update(jobGroups)
+        .set({
+          lastSeenAt: now,
+          ...(actioned
+            ? { newPostingsSinceAction: sql`${jobGroups.newPostingsSinceAction} + 1` }
+            : {}),
+        })
+        .where(eq(jobGroups.id, id));
+    },
+
+    /**
+     * Fold `loser` into `winner` in one transaction: postings move over, the loser's scores,
+     * assessment and vectors' group tags go, and the loser row is deleted.
+     */
+    async mergeInto(winnerId: string, loserId: string): Promise<void> {
+      await db.batch([
+        db.update(jobs).set({ groupId: winnerId }).where(eq(jobs.groupId, loserId)),
+        db.update(vectors).set({ groupId: winnerId }).where(eq(vectors.groupId, loserId)),
+        db.delete(jobCvSimilarity).where(eq(jobCvSimilarity.groupId, loserId)),
+        db.delete(assessments).where(eq(assessments.groupId, loserId)),
+        db.delete(jobGroups).where(eq(jobGroups.id, loserId)),
+      ]);
     },
 
     /** Filtered groups first seen before `cutoff` (retention clean-up). */

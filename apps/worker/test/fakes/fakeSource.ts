@@ -12,6 +12,10 @@ import type {
 import type { SourceCallRecorder } from '../../src/ports/sourceCalls.js';
 import { fakeReedHttp } from './fakeReedHttp.js';
 
+/** Twelve words that are different for every id, so two fixture adverts are never "the same role". */
+export const uniqueWords = (id: number): string =>
+  Array.from({ length: 12 }, (_, i) => `term${id}x${i}`).join(' ');
+
 /** A Reed-shaped job advert (the `jobs/{id}` response) with sensible contract defaults. */
 export const reedJob = (id: number, over: Record<string, unknown> = {}) => ({
   jobId: id,
@@ -22,8 +26,7 @@ export const reedJob = (id: number, over: Record<string, unknown> = {}) => ({
   salaryType: 'per day',
   contractType: 'Contract',
   date: '19/11/2026',
-  jobDescription:
-    '<p>SAFe agile coach for a transformation programme. Outside IR35. 6 month contract.</p>',
+  jobDescription: `<p>SAFe agile coach for a transformation programme. Outside IR35. 6 month contract.</p><p>${uniqueWords(id)}</p>`,
   jobUrl: `https://www.reed.co.uk/jobs/${id}`,
   ...over,
 });
