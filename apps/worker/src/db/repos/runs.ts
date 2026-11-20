@@ -1,5 +1,5 @@
 import type { RunPhase } from '@job-scout/shared';
-import { and, desc, eq, getTableColumns, inArray, lt, sql } from 'drizzle-orm';
+import { and, count, desc, eq, getTableColumns, inArray, like, lt, sql } from 'drizzle-orm';
 import type { Db } from '../client.js';
 import { processedMessages, runErrors, runs } from '../schema.js';
 
@@ -15,7 +15,11 @@ export type CountKey =
   | 'dupes'
   | 'prefiltered'
   | 'llmScored'
-  | 'inboxAdded';
+  | 'inboxAdded'
+  /** Adverts skipped because they were posted before `ingest.maxAgeDays`. */
+  | 'tooOld'
+  /** Jobs left for a later run because this run's Reed budget was used up. */
+  | 'deferred';
 
 export type ClaimResult = { applied: boolean; pending: number | null };
 
@@ -163,6 +167,16 @@ export function runsRepo(db: Db) {
         }
       }
       return applied;
+    },
+
+    /** How many claims exist with this prefix for the run, e.g. `enq:process` = messages queued so far. */
+    async countClaims(prefix: string, runId: string): Promise<number> {
+      const row = await db
+        .select({ n: count() })
+        .from(processedMessages)
+        .where(like(processedMessages.key, `${prefix}:${runId}:%`))
+        .get();
+      return row?.n ?? 0;
     },
 
     /** Atomic `counts[key] += by` inside `counts_json` (concurrent handlers cannot lose updates). */

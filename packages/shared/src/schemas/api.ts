@@ -1,9 +1,12 @@
 import { z } from 'zod';
 import {
   EmploymentTypeSchema,
+  GroupStatusSchema,
+  Ir35Schema,
   RunPhaseSchema,
   RunStatusSchema,
   RunTriggerSchema,
+  WorkModeSchema,
 } from './enums.js';
 import { SettingsPatchSchema, SettingsSchema } from './settings.js';
 
@@ -87,3 +90,41 @@ export const StartRunResponseSchema = z.object({
   queries: z.number().int(),
 });
 export type StartRunResponse = z.infer<typeof StartRunResponseSchema>;
+
+/** One job (group) in the temporary shortlist view; the full Inbox of M8 replaces it. */
+export const GroupListItemSchema = z.object({
+  id: z.string(),
+  status: GroupStatusSchema,
+  /** First-pass similarity to the best CV, 0–100. Null for filtered jobs. */
+  prefilterScore: z.number().nullable(),
+  /** Why a filtered job was hidden, e.g. "below_min_day_rate". */
+  filterReason: z.string().nullable(),
+  bestCv: z.string().nullable(),
+  job: z.object({
+    title: z.string().nullable(),
+    employerName: z.string().nullable(),
+    location: z.string().nullable(),
+    employmentType: EmploymentTypeSchema.nullable(),
+    workMode: WorkModeSchema.nullable(),
+    /** Normalised, e.g. "£600/day", "£85k" or "Not stated". */
+    payText: z.string(),
+    ir35: Ir35Schema.nullable(),
+    contractLengthMonths: z.number().nullable(),
+    postedAt: z.string().nullable(),
+    /** The advert on Reed (attribution and the place to apply). */
+    url: z.string().nullable(),
+  }),
+});
+export type GroupListItem = z.infer<typeof GroupListItemSchema>;
+
+export const GroupListResponseSchema = z.object({
+  items: z.array(GroupListItemSchema),
+  /** How many jobs match, which can exceed `items.length` (the page limit). */
+  total: z.number().int(),
+});
+export type GroupListResponse = z.infer<typeof GroupListResponseSchema>;
+
+export const GroupListQuerySchema = z.object({
+  show: z.enum(['shortlist', 'filtered']).default('shortlist'),
+  limit: z.coerce.number().int().min(1).max(200).default(100),
+});

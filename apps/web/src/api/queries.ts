@@ -2,6 +2,7 @@ import {
   CvDetailSchema,
   CvListResponseSchema,
   CvMutationResponseSchema,
+  GroupListResponseSchema,
   RunDetailSchema,
   RunListResponseSchema,
   SearchProfileSchema,
@@ -112,3 +113,9 @@ export function useStartRun() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: keys.runs }),
   });
 }
+
+export const useGroups = (show: 'shortlist' | 'filtered') =>
+  useQuery({
+    queryKey: ['groups', show] as const,
+    queryFn: () => api(`/groups?show=${show}&limit=100`, GroupListResponseSchema),
+  });

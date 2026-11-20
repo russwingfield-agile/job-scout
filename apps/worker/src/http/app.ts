@@ -5,6 +5,7 @@ import { onError, onNotFound } from './middleware/errors.js';
 import { requestId } from './middleware/requestId.js';
 import { cvsRoute } from './routes/cvs.js';
 import { devRoute } from './routes/dev.js';
+import { groupsRoute } from './routes/groups.js';
 import { healthRoute } from './routes/health.js';
 import { profilesRoute } from './routes/profiles.js';
 import { runsRoute } from './routes/runs.js';
@@ -29,6 +30,7 @@ export function createApp(makeDeps: (env: Env) => Deps = (env) => createContaine
     .route('/settings', settingsRoute)
     .route('/cvs', cvsRoute)
     .route('/profiles', profilesRoute)
+    .route('/groups', groupsRoute)
     .route('/runs', runsRoute)
     .route('/dev', devRoute);
 }

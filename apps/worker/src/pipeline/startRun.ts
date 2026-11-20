@@ -2,8 +2,15 @@ import type { Deps } from '../container.js';
 import { planQueries } from '../core/queries.js';
 import { AppError } from '../lib/errors.js';
 import { newUlid } from '../lib/ids.js';
-import { toIso } from '../lib/time.js';
-import { enqueueFetchKey, type FetchMessage } from './messages.js';
+import { dayKey, toIso } from '../lib/time.js';
+import {
+  enqueueFetchKey,
+  enqueueProcessKey,
+  type FetchMessage,
+  type PipelineMessage,
+} from './messages.js';
+
+const DAY_MS = 86_400_000;
 
 export type PipelineDeps = Pick<
   Deps,
@@ -55,7 +62,7 @@ export async function startRun(
   // Claim first (counts the work), then send: a lost send is caught by stale-run recovery.
   const keys = planned.map((q) => enqueueFetchKey(runId, q.queryKey, 0));
   const claimed = await repos.runs.claimMany(runId, keys, 'ingest', startedAt);
-  const messages: FetchMessage[] = planned
+  const fetchMessages: FetchMessage[] = planned
     .filter((q) => claimed.has(enqueueFetchKey(runId, q.queryKey, 0)))
     .map((q) => ({
       v: 1,
@@ -66,6 +73,36 @@ export async function startRun(
       query: q.query,
       page: 0,
     }));
+
+  // Finish jobs that earlier runs saw but could not afford to process, newest first, within the
+  // Reed budget left after reserving the searches this run is about to make.
+  const { budgets, ingest } = await deps.settings.get();
+  const usage = await repos.usage.get(dayKey(now));
+  const reserve = planned.length * budgets.maxPagesPerQuery;
+  const room = Math.max(
+    0,
+    Math.min(budgets.reedCallsPerRunCap, budgets.reedDailyRequestBudget - (usage?.reedCalls ?? 0)) -
+      reserve,
+  );
+  const backlog =
+    room > 0
+      ? await repos.jobs.listBacklog(
+          room,
+          new Date(now.getTime() - ingest.maxAgeDays * DAY_MS).toISOString(),
+        )
+      : [];
+  const backlogClaimed = await repos.runs.claimMany(
+    runId,
+    backlog.map((j) => enqueueProcessKey(runId, j.id)),
+    'ingest',
+    startedAt,
+  );
+  const messages: PipelineMessage[] = [
+    ...fetchMessages,
+    ...backlog
+      .filter((j) => backlogClaimed.has(enqueueProcessKey(runId, j.id)))
+      .map((j): PipelineMessage => ({ v: 1, type: 'process', runId, jobId: j.id })),
+  ];
 
   try {
     await bus.sendBatch(messages);
@@ -84,7 +121,8 @@ export async function startRun(
     runId,
     msg: 'run started',
     trigger: input.trigger,
-    queries: messages.length,
+    queries: fetchMessages.length,
+    backlog: messages.length - fetchMessages.length,
   });
-  return { runId, queries: messages.length };
+  return { runId, queries: fetchMessages.length };
 }

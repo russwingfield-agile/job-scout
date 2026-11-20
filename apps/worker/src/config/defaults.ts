@@ -38,12 +38,15 @@ export const DEFAULT_SETTINGS: Settings = {
     maxLlmPerRun: 30,
     maxPagesPerQuery: 3,
     reedDailyRequestBudget: 900,
-    reedCallsPerRunCap: 60,
+    // Three runs a day × 250 stays inside the daily budget; the first run on an empty database
+    // needs far more than the ~60 the original spec assumed for a steady-state run.
+    reedCallsPerRunCap: 250,
     // ASSUMPTION: Workers AI free allocation is 10,000 neurons/day; verify and adjust in Settings.
     aiDailyNeuronBudget: 10_000,
     fallbackModelAtFraction: 0.8,
     staleRunMinutes: 30,
   },
+  ingest: { maxAgeDays: 7 },
   models: {
     embedding: '@cf/baai/bge-base-en-v1.5',
     embeddingDims: 768,

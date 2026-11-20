@@ -116,3 +116,16 @@ Verified with a real key (Basic auth, key as username, empty password). Recorded
 - **Bug found by tests:** the Runs list's Reed-call and error counts were always 0 — drizzle printed the outer `runs.id` unqualified inside a correlated subquery, so it compared the subquery table's own `id`. The subqueries now name `runs.id`.
 - **Deploying the pipeline needs, before it runs for real:** the queues (`fetch-q`, `process-q`, `job-scout-dlq`) created in the dashboard, their bindings enabled in `wrangler.jsonc`, **Queues → Edit** on the deploy token, and `REED_API_KEY` stored as a Worker secret. Until then "Run now" answers 503 NOT_CONFIGURED, and a scheduled tick records a failed run saying so.
 - **Queues enabled (2026-11-20).** `fetch-q`, `process-q` and `job-scout-dlq` were created by the owner in the dashboard; the producers/consumers are now active in `wrangler.jsonc` (batch size 1, concurrency 2 and 5, 3 retries, dead-letter queue). `score-q` arrives with M7.
+
+### M5 follow-up — first live run (2026-11-20)
+
+- **What the first real run showed:** 1,419 adverts fetched, 1,043 "new", 60 Reed calls, 354 errors. The 60 was the per-run cap I had set from the SPEC's steady-state estimate; on an empty database every advert Reed returns is new, so everything past the cap was refused and recorded as an error. Nothing was lost (those jobs stayed "seen" and unprocessed) but the design was wrong for a first run.
+- **Fixes:**
+  - **Age window.** New setting `ingest.maxAgeDays` (default 7). Adverts posted before that are recorded as `too_old` and never fetched in full (each full advert costs a Reed call, and the Inbox is about recent jobs). Counted as `tooOld`.
+  - **Budget-aware queueing.** `fetchPage` queues only as many adverts as the run and daily Reed budgets can pay for (cap − calls made − adverts already queued − 1 held back for a next page), newest first. The rest are counted as `deferred`, not errors.
+  - **Backlog pickup.** `startRun` also queues jobs left at "seen" by earlier runs, newest first, within the budget left after reserving the run's searches (`queries × maxPagesPerQuery`). Deferral therefore never depends on a later search happening to rediscover a job.
+  - **Late exhaustion is deferral too:** a `process` message that finds the budget spent leaves the job at "seen" and counts it as deferred instead of raising an error.
+  - **`budgets.reedCallsPerRunCap` default 60 → 250** (three runs a day stay inside the 900 daily budget).
+- **ASSUMPTION (unverified):** Reed returns search results newest-first (or close to it), which is why "newest first within a page, stop paging when a page yields no work" is sound. If results are ranked by relevance instead, older matching jobs could be revisited before newer ones; revisit if the shortlist looks stale.
+- **Temporary shortlist view (plan "early-value shortcut").** `GET /api/groups?show=shortlist|filtered&limit=` and a Shortlist page list jobs by first-pass similarity score, with the filtered view explaining why each was hidden. Replaced by the full Inbox in M8. The nav item "Inbox" is labelled "Shortlist" until then.
+- **Test harness:** `FakeSource` now records calls through the real recorder, so Reed budget accounting in tests matches production.

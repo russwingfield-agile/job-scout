@@ -1,4 +1,4 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, or } from 'drizzle-orm';
 import type { Db } from '../client.js';
 import { jobProfileHits, jobs } from '../schema.js';
 
@@ -9,6 +9,8 @@ export type JobPatch = Partial<Omit<NewJob, 'id'>>;
 /** Keep each statement under D1's 100 bound-parameter limit. */
 const INSERT_CHUNK = 8;
 const IN_CHUNK = 50;
+
+export type KnownJob = { id: string; stage: JobRow['stage']; postedAt: string | null };
 
 const chunks = <T>(items: T[], size: number): T[][] => {
   const out: T[][] = [];
@@ -38,20 +40,46 @@ export function jobsRepo(db: Db) {
       }
     },
 
-    /** id and stage for each already-known (source, sourceJobId), keyed by sourceJobId. */
-    async findBySourceIds(
-      source: string,
-      sourceJobIds: string[],
-    ): Promise<Map<string, { id: string; stage: JobRow['stage'] }>> {
-      const found = new Map<string, { id: string; stage: JobRow['stage'] }>();
+    /** id, stage and posting time of each already-known (source, sourceJobId), keyed by sourceJobId. */
+    async findBySourceIds(source: string, sourceJobIds: string[]): Promise<Map<string, KnownJob>> {
+      const found = new Map<string, KnownJob>();
       for (const batch of chunks(sourceJobIds, IN_CHUNK)) {
         const rows = await db
-          .select({ id: jobs.id, sourceJobId: jobs.sourceJobId, stage: jobs.stage })
+          .select({
+            id: jobs.id,
+            sourceJobId: jobs.sourceJobId,
+            stage: jobs.stage,
+            postedAt: jobs.postedAt,
+          })
           .from(jobs)
           .where(and(eq(jobs.source, source), inArray(jobs.sourceJobId, batch)));
-        for (const r of rows) found.set(r.sourceJobId, { id: r.id, stage: r.stage });
+        for (const r of rows) {
+          found.set(r.sourceJobId, { id: r.id, stage: r.stage, postedAt: r.postedAt });
+        }
       }
       return found;
+    },
+
+    /** Seen-but-unprocessed jobs posted within the window, newest first (a later run finishes them). */
+    async listBacklog(limit: number, postedAfter: string): Promise<{ id: string }[]> {
+      return db
+        .select({ id: jobs.id })
+        .from(jobs)
+        .where(
+          and(eq(jobs.stage, 'ref'), or(isNull(jobs.postedAt), gte(jobs.postedAt, postedAfter))),
+        )
+        .orderBy(desc(jobs.postedAt))
+        .limit(limit);
+    },
+
+    /** Close out jobs we will not process (e.g. too old), recording why. */
+    async markSkipped(ids: string[], reason: string): Promise<void> {
+      for (const batch of chunks(ids, IN_CHUNK)) {
+        await db
+          .update(jobs)
+          .set({ stage: 'processed', filterReason: reason })
+          .where(inArray(jobs.id, batch));
+      }
     },
 
     async getById(id: string): Promise<JobRow | undefined> {

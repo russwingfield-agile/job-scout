@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers';
 import type { RunDetail, RunSummary, UpdateSearchProfile } from '@job-scout/shared';
 import { describe, expect, it } from 'vitest';
+import { createSourceCallRecorder } from '../../src/adapters/sourceCallRecorder.js';
 import { createContainer } from '../../src/container.js';
 import { createDb } from '../../src/db/client.js';
 import { createRepos } from '../../src/db/repos/index.js';
@@ -80,6 +81,7 @@ async function setup(
   const vectors = new FakeVectorStore();
   const bus = new FakeBus();
   const source = opts.source ?? new FakeSource({ pages: PAGES, details: DETAILS });
+  source.recorder = createSourceCallRecorder({ repos, clock });
   const deps = createContainer(env, { clock, embedder, vectors, bus, source, access: null });
 
   const now = clock.now().toISOString();
@@ -418,15 +420,6 @@ describe('failures', () => {
     expect((await repos.runs.listErrors(runId, 5))[0]?.message).toContain('daily_budget');
   });
 
-  it('applies the per-run Reed cap using the calls this run has already made', async () => {
-    const s = await setup();
-    await repos.settings.put('budgets', { reedCallsPerRunCap: 2 }, '2026-11-20T00:00:00.000Z');
-    const { runId } = await runAll(s);
-    // Two search pages plus details would need 7 calls; the cap lets the pipeline make 2 source calls.
-    // The fake source does not record calls itself, so simulate the real client's accounting:
-    expect((await repos.runs.getById(runId))?.status).toBe('completed');
-  });
-
   it('a job that disappeared from Reed is closed out, not retried', async () => {
     const s = await setup({
       source: new FakeSource({
@@ -481,6 +474,151 @@ describe('failures', () => {
   });
 });
 
+describe('Reed budget and job age', () => {
+  const DAY = 86_400_000;
+  const refAt = (job: ReturnType<typeof reedJob>, daysAgo: number) => ({
+    ...refFor(job),
+    postedAt: new Date(FRIDAY_0700 - daysAgo * DAY).toISOString(),
+  });
+
+  it('records adverts older than the ingest window but never fetches them in full', async () => {
+    const fresh = reedJob(11);
+    const old = reedJob(12);
+    const s = await setup({
+      source: new FakeSource({
+        pages: { 'Agile Coach': [[refAt(fresh, 1), refAt(old, 30)]] },
+        details: { '11': fresh, '12': old },
+      }),
+    });
+    const { runId } = await runAll(s);
+
+    expect(s.source.detailCalls).toEqual(['11']);
+    expect(await repos.jobs.getBySource('reed', '12')).toMatchObject({
+      stage: 'processed',
+      filterReason: 'too_old',
+      groupId: null,
+    });
+    expect((await repos.runs.getById(runId))?.countsJson).toMatchObject({
+      fetched: 2,
+      new: 1,
+      tooOld: 1,
+      prefiltered: 1,
+    });
+  });
+
+  it('honours a longer ingest window from settings', async () => {
+    const old = reedJob(12);
+    const s = await setup({
+      source: new FakeSource({
+        pages: { 'Agile Coach': [[refAt(old, 30)]] },
+        details: { '12': old },
+      }),
+    });
+    await repos.settings.put('ingest', { maxAgeDays: 60 }, '2026-11-20T00:00:00.000Z');
+    await runAll(s);
+    expect(s.source.detailCalls).toEqual(['12']);
+  });
+
+  it('queues only what the run\x27s Reed budget can pay for, newest first, and defers the rest without errors', async () => {
+    const jobs = [21, 22, 23, 24, 25, 26].map((id) => reedJob(id));
+    const refs = jobs.map((j, i) => refAt(j, i)); // 21 is the newest, 26 the oldest
+    const s = await setup({
+      source: new FakeSource({
+        pages: { 'Agile Coach': [refs] },
+        details: Object.fromEntries(jobs.map((j) => [String(j.jobId), j])),
+      }),
+    });
+    // 1 search + 3 adverts + 1 held back for a next page = a cap of 5.
+    await repos.settings.put('budgets', { reedCallsPerRunCap: 5 }, '2026-11-20T00:00:00.000Z');
+    const { runId } = await runAll(s);
+
+    expect(s.source.detailCalls.sort()).toEqual(['21', '22', '23']);
+    const run = await repos.runs.getById(runId);
+    expect(run).toMatchObject({ status: 'completed', phase: 'done', pendingIngest: 0 });
+    expect(run?.countsJson).toMatchObject({ fetched: 6, new: 6, deferred: 3 });
+    expect(await repos.runs.listErrors(runId, 5)).toHaveLength(0);
+    // The deferred jobs are still waiting, untouched.
+    for (const id of ['24', '25', '26']) {
+      expect(await repos.jobs.getBySource('reed', id)).toMatchObject({
+        stage: 'ref',
+        groupId: null,
+      });
+    }
+    expect(await countRows('source_calls', `run_id = '${runId}'`)).toBe(4);
+  });
+
+  it('the next run finishes the deferred jobs straight from the database, before searching again', async () => {
+    const jobs = [21, 22, 23, 24, 25, 26].map((id) => reedJob(id));
+    const source = new FakeSource({
+      pages: { 'Agile Coach': [jobs.map((j, i) => refAt(j, i))] },
+      details: Object.fromEntries(jobs.map((j) => [String(j.jobId), j])),
+    });
+    const s = await setup({ source });
+    await repos.settings.put('budgets', { reedCallsPerRunCap: 5 }, '2026-11-20T00:00:00.000Z');
+    await runAll(s);
+    expect(source.detailCalls).toHaveLength(3);
+
+    // A roomier budget for the second run: the 3 waiting adverts are queued straight from the
+    // database, after reserving the searches this run may still make.
+    // (Through the service, which caches settings for the life of this test container.)
+    await s.deps.settings.update({ budgets: { reedCallsPerRunCap: 10 } });
+    const second = await startRun(s.deps, { trigger: 'manual' });
+    expect(s.bus.pending('process')).toHaveLength(3);
+    await s.bus.drain(s.deps);
+
+    expect(source.detailCalls.sort()).toEqual(['21', '22', '23', '24', '25', '26']);
+    expect(await repos.runs.getById(second?.runId as string)).toMatchObject({
+      status: 'completed',
+      pendingIngest: 0,
+    });
+    expect(await countRows('jobs', "stage = 'processed'")).toBe(6);
+  });
+
+  it('skips the whole backlog when the daily budget is already spent', async () => {
+    const job = reedJob(31);
+    const s = await setup({
+      source: new FakeSource({
+        pages: { 'Agile Coach': [[refAt(job, 1)]] },
+        details: { '31': job },
+      }),
+    });
+    await repos.jobs.insertRefsIfNew([
+      {
+        id: 'waiting',
+        source: 'reed',
+        sourceJobId: '99',
+        title: 'Old ref',
+        postedAt: new Date(FRIDAY_0700 - DAY).toISOString(),
+        createdAt: '2026-11-19T00:00:00.000Z',
+      },
+    ]);
+    await repos.usage.increment('2026-11-20', 'reedCalls', 899); // one call left today: not enough for the searches
+    await startRun(s.deps, { trigger: 'manual' });
+    expect(s.bus.pending('process')).toHaveLength(0);
+  });
+
+  it('jobs whose turn comes after the budget ran out are deferred, not reported as errors', async () => {
+    const s = await setup();
+    const { runId } = (await startRun(s.deps, { trigger: 'manual' })) as { runId: string };
+    // Deliver just the search page, then the day's budget disappears before the jobs are processed.
+    const first = s.bus.queue.shift();
+    await handleMessage(s.deps, first?.msg, 1);
+    await repos.usage.increment('2026-11-20', 'reedCalls', 900);
+    await s.bus.drain(s.deps);
+
+    const run = await repos.runs.getById(runId);
+    expect(run).toMatchObject({ status: 'completed', phase: 'done', pendingIngest: 0 });
+    expect(run?.countsJson).toMatchObject({ deferred: 3 });
+    // The three jobs are deferred silently; the only error is the refused search for page 2.
+    const errors = await repos.runs.listErrors(runId, 5);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({ stage: 'fetch' });
+    expect(errors[0]?.message).toContain('daily_budget');
+    expect(await countRows('jobs', "stage = 'ref'")).toBe(3);
+    expect(s.source.detailCalls).toHaveLength(0);
+  });
+});
+
 describe('/api/runs', () => {
   const devEnv = { DB: env.DB, ENV: 'dev', DEV_BYPASS_AUTH: 'true' } as unknown as Env;
   const call = (s: Setup, path: string, method = 'GET') =>
@@ -524,19 +662,11 @@ describe('/api/runs', () => {
 
   it('reports counts and Reed calls for a successful run', async () => {
     const s = await setup();
-    const { runId } = await runAll(s);
-    await repos.sourceCalls.insert({
-      runId,
-      source: 'reed',
-      endpoint: 'search',
-      status: 200,
-      ms: 5,
-      createdAt: '2026-11-20T07:00:00.000Z',
-    });
+    await runAll(s);
     const [row] = (await (await call(s, '/runs')).json()) as RunSummary[];
     expect(row).toMatchObject({
       counts: { fetched: 5, new: 5, filtered: 2, prefiltered: 3 },
-      reedCalls: 1,
+      reedCalls: 7,
       errorCount: 0,
     });
   });

@@ -11,6 +11,12 @@ export const COUNT_COLUMNS = [
   { key: 'llmScored', label: 'Scored' },
 ] as const;
 
+/** Counters shown only in a run's detail panel (the table is already wide). */
+export const EXTRA_COUNTS = [
+  { key: 'tooOld', label: 'Skipped (posted too long ago)' },
+  { key: 'deferred', label: 'Left for the next run (Reed budget)' },
+] as const;
+
 const STATUS_LABEL: Record<RunStatus, string> = {
   running: 'Running',
   completed: 'Completed',

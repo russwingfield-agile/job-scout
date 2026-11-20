@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { useRun } from '../../api/queries.js';
 import { Button } from '../../components/ui/Button.js';
 import { formatStarted, runDuration } from '../../lib/format.js';
-import { COUNT_COLUMNS, StatusBadge } from './parts.js';
+import { COUNT_COLUMNS, EXTRA_COUNTS, StatusBadge } from './parts.js';
 
 /** Side panel with one run's progress, counters and errors. Escape or the button closes it. */
 export function RunDrawer({ runId, onClose }: { runId: string; onClose: () => void }) {
@@ -69,7 +69,7 @@ function RunBody({
       </div>
 
       <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
-        {COUNT_COLUMNS.map(({ key, label }) => (
+        {[...COUNT_COLUMNS, ...EXTRA_COUNTS].map(({ key, label }) => (
           <div key={key} className="flex justify-between border-b border-[var(--border)] py-1">
             <dt className="text-[var(--muted)]">{label}</dt>
             <dd className="font-medium">{run.counts[key] ?? 0}</dd>

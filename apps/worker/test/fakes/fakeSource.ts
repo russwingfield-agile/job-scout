@@ -2,7 +2,14 @@ import { ReedJobDetailsSchema } from '@job-scout/shared';
 import { ReedAdapter } from '../../src/adapters/reed/adapter.js';
 import type { NormaliseContext } from '../../src/core/normalise.js';
 import { AppError } from '../../src/lib/errors.js';
-import type { RawJob, RawJobRef, SearchQuery, SourceAdapter } from '../../src/ports/source.js';
+import type {
+  RawJob,
+  RawJobRef,
+  SearchQuery,
+  SourceAdapter,
+  SourceCallContext,
+} from '../../src/ports/source.js';
+import type { SourceCallRecorder } from '../../src/ports/sourceCalls.js';
 import { fakeReedHttp } from './fakeReedHttp.js';
 
 /** A Reed-shaped job advert (the `jobs/{id}` response) with sensible contract defaults. */
@@ -41,6 +48,8 @@ export class FakeSource implements SourceAdapter {
   readonly searches: { q: SearchQuery; page: number }[] = [];
   readonly detailCalls: string[] = [];
   /** Return an Error to throw for the n-th (1-based) search / details call. */
+  /** Set by the test harness so calls are counted against the Reed budget like the real client does. */
+  recorder: SourceCallRecorder | null = null;
   searchError: ((n: number) => Error | null) | null = null;
   detailsError: ((n: number) => Error | null) | null = null;
 
@@ -51,8 +60,15 @@ export class FakeSource implements SourceAdapter {
     },
   ) {}
 
-  async search(q: SearchQuery, page: number) {
+  async search(q: SearchQuery, page: number, ctx?: SourceCallContext) {
     this.searches.push({ q, page });
+    await this.recorder?.record({
+      runId: ctx?.runId,
+      source: 'reed',
+      endpoint: 'search',
+      status: 200,
+      ms: 1,
+    });
     const failure = this.searchError?.(this.searches.length);
     if (failure) throw failure;
     const pages = this.data.pages[q.keywords] ?? [];
@@ -63,8 +79,15 @@ export class FakeSource implements SourceAdapter {
     };
   }
 
-  async details(sourceJobId: string): Promise<RawJob> {
+  async details(sourceJobId: string, ctx?: SourceCallContext): Promise<RawJob> {
     this.detailCalls.push(sourceJobId);
+    await this.recorder?.record({
+      runId: ctx?.runId,
+      source: 'reed',
+      endpoint: `jobs/${sourceJobId}`,
+      status: 200,
+      ms: 1,
+    });
     const failure = this.detailsError?.(this.detailCalls.length);
     if (failure) throw failure;
     const raw = this.data.details[sourceJobId];

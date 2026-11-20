@@ -131,11 +131,17 @@ export const CvSettingsSchema = z.object({
   }),
 });
 
+export const IngestSettingsSchema = z.object({
+  /** Adverts posted longer ago than this are recorded but never fetched in full (the Inbox shows recent jobs). */
+  maxAgeDays: posInt,
+});
+
 export const SettingsSchema = z.object({
   schedule: ScheduleSettingsSchema,
   weights: WeightsSettingsSchema,
   thresholds: ThresholdsSettingsSchema,
   budgets: BudgetsSettingsSchema,
+  ingest: IngestSettingsSchema,
   models: ModelsSettingsSchema,
   dedupe: DedupeSettingsSchema,
   feedback: FeedbackSettingsSchema,
@@ -159,6 +165,7 @@ export const SettingsPatchSchema = z.object({
   weights: WeightsBaseSchema.partial().optional(),
   thresholds: ThresholdsBaseSchema.partial().optional(),
   budgets: BudgetsSettingsSchema.partial().optional(),
+  ingest: IngestSettingsSchema.partial().optional(),
   models: ModelsSettingsSchema.partial().optional(),
   dedupe: DedupeSettingsSchema.partial().optional(),
   feedback: FeedbackSettingsSchema.partial().optional(),

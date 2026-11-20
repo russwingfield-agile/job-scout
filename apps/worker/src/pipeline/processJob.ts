@@ -85,7 +85,9 @@ export async function processJob(deps: PipelineDeps, msg: ProcessMessage): Promi
       settings.budgets,
     );
     if (!decision.ok) {
-      throw new AppError('BUDGET_EXHAUSTED', `Reed budget exhausted (${decision.reason})`);
+      // Out of Reed budget: leave the job at "seen" for a later run. Deferred, not an error.
+      await repos.runs.bumpCount(msg.runId, 'deferred', 1);
+      return;
     }
     try {
       raw = (await source.details(job.sourceJobId, { runId: msg.runId })).raw;

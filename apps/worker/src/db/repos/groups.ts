@@ -1,7 +1,7 @@
 import type { GroupStatus } from '@job-scout/shared';
-import { eq, inArray } from 'drizzle-orm';
+import { count, desc, eq, inArray } from 'drizzle-orm';
 import type { Db } from '../client.js';
-import { jobCvSimilarity, jobGroups } from '../schema.js';
+import { cvs, jobCvSimilarity, jobGroups, jobs } from '../schema.js';
 
 export type GroupRow = typeof jobGroups.$inferSelect;
 export type NewGroup = typeof jobGroups.$inferInsert;
@@ -23,6 +23,27 @@ export function groupsRepo(db: Db) {
 
     async setStatus(id: string, status: GroupStatus): Promise<void> {
       await db.update(jobGroups).set({ status }).where(eq(jobGroups.id, id));
+    },
+
+    /** Jobs to show, best first (highest first-pass score, then newest), with the advert and best CV. */
+    async listWithJobs(statuses: GroupStatus[], limit: number) {
+      return db
+        .select({ group: jobGroups, job: jobs, bestCv: cvs.label })
+        .from(jobGroups)
+        .innerJoin(jobs, eq(jobs.id, jobGroups.canonicalJobId))
+        .leftJoin(cvs, eq(cvs.id, jobGroups.bestCvId))
+        .where(inArray(jobGroups.status, statuses))
+        .orderBy(desc(jobGroups.prefilterScore), desc(jobs.postedAt))
+        .limit(limit);
+    },
+
+    async countByStatus(statuses: GroupStatus[]): Promise<number> {
+      const row = await db
+        .select({ n: count() })
+        .from(jobGroups)
+        .where(inArray(jobGroups.status, statuses))
+        .get();
+      return row?.n ?? 0;
     },
 
     async listByStatus(statuses: GroupStatus[]): Promise<GroupRow[]> {
