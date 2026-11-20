@@ -127,3 +127,9 @@ CV and job fingerprints (embeddings) are stored in D1 — **no Vectorize index i
 4. Uncomment the `queues` block in `apps/worker/wrangler.jsonc` and push.
 
 Until then, "Run now" shows "Job queues is not configured" and scheduled slots record a failed run saying the same.
+
+## Enabling AI assessment (M7: `score-q`)
+
+The AI-assessment step needs one more queue. Cloudflare → Workers & Pages → Queues → Create queue → name it exactly
+`score-q` (default jurisdiction). The deploy token already has Queues permission. It must exist **before** the M7 code is
+deployed, because `wrangler.jsonc` binds it and a deploy fails if the queue is missing.

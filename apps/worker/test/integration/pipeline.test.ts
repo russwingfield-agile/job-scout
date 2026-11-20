@@ -13,11 +13,14 @@ import { runScheduled } from '../../src/pipeline/scheduled.js';
 import { startRun } from '../../src/pipeline/startRun.js';
 import { FakeBus } from '../fakes/fakeBus.js';
 import { FakeEmbedder } from '../fakes/fakeEmbedder.js';
+import { FakeLlm } from '../fakes/fakeLlm.js';
 import { FakeSource, reedJob, refFor } from '../fakes/fakeSource.js';
 import { FakeVectorStore } from '../fakes/fakeVectorStore.js';
+import { assessmentJson } from '../fixtures/assessment.js';
 
 const repos = createRepos(createDb(env.DB));
 const TABLES = [
+  'assessments',
   'runs',
   'run_errors',
   'processed_messages',
@@ -82,9 +85,12 @@ async function setup(
   const bus = new FakeBus();
   const source = opts.source ?? new FakeSource({ pages: PAGES, details: DETAILS });
   source.recorder = createSourceCallRecorder({ repos, clock });
-  const deps = createContainer(env, { clock, embedder, vectors, bus, source, access: null });
-
+  const llm = FakeLlm.always(assessmentJson());
   const now = clock.now().toISOString();
+  // Every passing job goes to the model: the first-pass cut-off is tested in assessment.test.ts.
+  await repos.settings.put('thresholds', { prefilterMin: 0 }, now);
+  const deps = createContainer(env, { clock, embedder, vectors, bus, source, llm, access: null });
+
   const cvIds: string[] = [];
   for (const [i, patch] of (opts.profiles ?? [{}]).entries()) {
     const cvId = `cv${i + 1}`;
@@ -103,7 +109,7 @@ async function setup(
     ]);
     await repos.profiles.insert(`p${i + 1}`, cvId, { ...baseProfile, ...patch }, now);
   }
-  return { clock, embedder, vectors, bus, source, deps };
+  return { clock, embedder, vectors, bus, source, llm, deps };
 }
 
 type Setup = Awaited<ReturnType<typeof setup>>;
@@ -132,7 +138,14 @@ describe('a full ingest run', () => {
       pendingScore: 0,
     });
     expect(run?.finishedAt).toBe(s.clock.now().toISOString());
-    expect(run?.countsJson).toEqual({ fetched: 5, new: 5, filtered: 2, prefiltered: 3 });
+    expect(run?.countsJson).toEqual({
+      fetched: 5,
+      new: 5,
+      filtered: 2,
+      prefiltered: 3,
+      llmScored: 3,
+      inboxAdded: 3,
+    });
 
     // Both pages were searched, each job's advert fetched exactly once.
     expect(s.source.searches.map((c) => c.page)).toEqual([0, 1]);
@@ -154,16 +167,17 @@ describe('a full ingest run', () => {
       ir35: 'outside',
       filterReason: null,
     });
-    expect(ok.group).toMatchObject({ status: 'prefiltered', canonicalJobId: ok.job?.id, runId });
+    expect(ok.group).toMatchObject({ status: 'new', canonicalJobId: ok.job?.id, runId });
     expect(ok.group?.prefilterScore).toBeGreaterThan(0);
+    expect(ok.group?.finalScore).toBeGreaterThan(0);
     expect(ok.group?.bestCvId).toBe('cv1');
 
     const low = await statusOf('2');
     expect(low.job).toMatchObject({ stage: 'processed', filterReason: 'below_min_day_rate' });
     expect(low.group?.status).toBe('filtered');
     expect((await statusOf('3')).job?.filterReason).toBe('excluded_keyword:graduate');
-    expect((await statusOf('4')).group?.status).toBe('prefiltered');
-    expect((await statusOf('5')).group?.status).toBe('prefiltered');
+    expect((await statusOf('4')).group?.status).toBe('new');
+    expect((await statusOf('5')).group?.status).toBe('new');
 
     // Only passing jobs are embedded; each is compared with the one active CV.
     expect([...s.vectors.items.keys()].filter((k) => k.startsWith('job:'))).toHaveLength(3);
@@ -171,8 +185,11 @@ describe('a full ingest run', () => {
     expect(await countRows('job_groups')).toBe(5);
     expect(await countRows('job_profile_hits')).toBe(5);
 
-    // Every enqueue and completion left exactly one marker: 2 fetch pages + 5 jobs, each twice.
-    expect(await countRows('processed_messages')).toBe(14);
+    // Every enqueue and completion left exactly one marker: 2 fetch pages + 5 jobs + 3 assessments,
+    // each twice.
+    expect(await countRows('processed_messages')).toBe(20);
+    expect(await countRows('assessments', "status = 'ok'")).toBe(3);
+    expect(s.llm.requests).toHaveLength(3);
   });
 
   it('stops paging at the configured limit', async () => {
@@ -199,12 +216,25 @@ describe('a full ingest run', () => {
     const { runId } = await runAll(s, { duplicate: true });
 
     const run = await repos.runs.getById(runId);
-    expect(run).toMatchObject({ status: 'completed', phase: 'done', pendingIngest: 0 });
-    expect(run?.countsJson).toEqual({ fetched: 10, new: 5, filtered: 2, prefiltered: 3 }); // fetch page redelivered
+    expect(run).toMatchObject({
+      status: 'completed',
+      phase: 'done',
+      pendingIngest: 0,
+      pendingScore: 0,
+    });
+    expect(run?.countsJson).toEqual({
+      fetched: 10, // the fetch page was redelivered
+      new: 5,
+      filtered: 2,
+      prefiltered: 3,
+      llmScored: 3,
+      inboxAdded: 3,
+    });
     expect(await countRows('job_groups')).toBe(5);
     expect(await countRows('jobs')).toBe(5);
-    expect(await countRows('processed_messages')).toBe(14);
+    expect(await countRows('processed_messages')).toBe(20);
     expect(s.source.detailCalls).toHaveLength(5);
+    expect(s.llm.requests).toHaveLength(3); // the model is never paid for twice
     expect([...s.vectors.items.keys()].filter((k) => k.startsWith('job:'))).toHaveLength(3);
   });
 
@@ -665,7 +695,7 @@ describe('/api/runs', () => {
     await runAll(s);
     const [row] = (await (await call(s, '/runs')).json()) as RunSummary[];
     expect(row).toMatchObject({
-      counts: { fetched: 5, new: 5, filtered: 2, prefiltered: 3 },
+      counts: { fetched: 5, new: 5, filtered: 2, prefiltered: 3, llmScored: 3, inboxAdded: 3 },
       reedCalls: 7,
       errorCount: 0,
     });

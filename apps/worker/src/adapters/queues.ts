@@ -10,21 +10,19 @@ export interface QueueLike {
 /** Cloudflare accepts at most 100 messages per sendBatch call. */
 const SEND_BATCH_LIMIT = 100;
 
-type Queues = { fetch: QueueLike; process: QueueLike };
+type Queues = { fetch: QueueLike; process: QueueLike; score: QueueLike };
+
+const TYPES = ['fetch', 'process', 'score'] as const;
 
 export class QueueBus implements Bus {
   constructor(private readonly queues: Queues) {}
 
-  private queueFor(msg: PipelineMessage): QueueLike {
-    return msg.type === 'fetch' ? this.queues.fetch : this.queues.process;
-  }
-
   async send(msg: PipelineMessage, opts: { delaySeconds?: number } = {}): Promise<void> {
-    await this.queueFor(msg).send(msg, opts);
+    await this.queues[msg.type].send(msg, opts);
   }
 
   async sendBatch(msgs: PipelineMessage[]): Promise<void> {
-    for (const type of ['fetch', 'process'] as const) {
+    for (const type of TYPES) {
       const bodies = msgs.filter((m) => m.type === type).map((body) => ({ body }));
       for (let i = 0; i < bodies.length; i += SEND_BATCH_LIMIT) {
         await this.queues[type].sendBatch(bodies.slice(i, i + SEND_BATCH_LIMIT));

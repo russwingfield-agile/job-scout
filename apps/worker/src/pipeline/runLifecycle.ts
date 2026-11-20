@@ -1,21 +1,6 @@
 import { toIso } from '../lib/time.js';
+import { selectForScoring } from './selectForScoring.js';
 import type { PipelineDeps } from './startRun.js';
-
-/** Close a run. (M7 will add the cleanup that runs on the 17:00 slot.) */
-export async function finaliseRun(deps: PipelineDeps, runId: string): Promise<void> {
-  await deps.repos.runs.finish(runId, {
-    status: 'completed',
-    finishedAt: toIso(deps.clock.now()),
-  });
-}
-
-/**
- * Stage D. Until M7 adds LLM assessment, scoring has nothing to select, so the run just finishes.
- * M7 replaces this with: pick the top groups by prefilter score, queue `score` messages.
- */
-export async function selectForScoring(deps: PipelineDeps, runId: string): Promise<void> {
-  await finaliseRun(deps, runId);
-}
 
 /**
  * Called when a run's pending-ingest counter hits zero. Only one caller wins the phase change, so

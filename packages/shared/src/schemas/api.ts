@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import {
+  ApplyRecommendationSchema,
+  AssessmentStatusSchema,
   EmploymentTypeSchema,
   GroupStatusSchema,
   Ir35Schema,
@@ -97,6 +99,20 @@ export const GroupListItemSchema = z.object({
   status: GroupStatusSchema,
   /** First-pass similarity to the best CV, 0–100. Null for filtered jobs. */
   prefilterScore: z.number().nullable(),
+  /** Overall score after the AI assessment, 0–100. Null until the job has been assessed. */
+  finalScore: z.number().nullable(),
+  /** The AI's read of the job; null until assessed. `failed` means the AI could not assess it. */
+  assessment: z
+    .object({
+      status: AssessmentStatusSchema,
+      fitScore: z.number().nullable(),
+      headline: z.string().nullable(),
+      strengths: z.array(z.string()),
+      gaps: z.array(z.string()),
+      redFlags: z.array(z.string()),
+      recommendation: ApplyRecommendationSchema.nullable(),
+    })
+    .nullable(),
   /** Why a filtered job was hidden, e.g. "below_min_day_rate". */
   filterReason: z.string().nullable(),
   bestCv: z.string().nullable(),
@@ -123,6 +139,12 @@ export const GroupListResponseSchema = z.object({
   total: z.number().int(),
 });
 export type GroupListResponse = z.infer<typeof GroupListResponseSchema>;
+
+/** POST /api/groups/:id/rescore: what happened to the group. */
+export const RescoreResponseSchema = z.object({
+  outcome: z.enum(['scored', 'failed']),
+});
+export type RescoreResponse = z.infer<typeof RescoreResponseSchema>;
 
 export const GroupListQuerySchema = z.object({
   show: z.enum(['shortlist', 'filtered']).default('shortlist'),

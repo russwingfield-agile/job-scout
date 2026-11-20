@@ -236,7 +236,8 @@ export const assessments = sqliteTable('assessments', {
   model: text('model'),
   fitScore: real('fit_score'),
   bestCvId: text('best_cv_id'),
-  resultJson: text('result_json', { mode: 'json' }).$type<AssessmentResult | null>().notNull(),
+  /** Null when the assessment failed (status `failed`). */
+  resultJson: text('result_json', { mode: 'json' }).$type<AssessmentResult | null>(),
   status: text('status').$type<AssessmentStatus>().notNull(),
   promptVersion: text('prompt_version'),
   createdAt: text('created_at').notNull(),

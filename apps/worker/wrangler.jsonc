@@ -36,7 +36,8 @@
   "queues": {
     "producers": [
       { "binding": "FETCH_Q", "queue": "fetch-q" },
-      { "binding": "PROCESS_Q", "queue": "process-q" }
+      { "binding": "PROCESS_Q", "queue": "process-q" },
+      { "binding": "SCORE_Q", "queue": "score-q" }
     ],
     "consumers": [
       {
@@ -50,6 +51,14 @@
         "queue": "process-q",
         "max_batch_size": 1,
         "max_concurrency": 5,
+        "max_retries": 3,
+        "dead_letter_queue": "job-scout-dlq"
+      },
+      {
+        // Few at a time: each message is one LLM call (several seconds), and the free AI quota is small.
+        "queue": "score-q",
+        "max_batch_size": 1,
+        "max_concurrency": 2,
         "max_retries": 3,
         "dead_letter_queue": "job-scout-dlq"
       }

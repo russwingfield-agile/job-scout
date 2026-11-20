@@ -15,6 +15,7 @@ import { FakeVectorStore } from '../fakes/fakeVectorStore.js';
 const repos = createRepos(createDb(env.DB));
 const devEnv = { DB: env.DB, ENV: 'dev', DEV_BYPASS_AUTH: 'true' } as unknown as Env;
 const TABLES = [
+  'assessments',
   'runs',
   'run_errors',
   'processed_messages',
@@ -79,6 +80,9 @@ async function populated() {
     },
     now,
   );
+  // No AI assessment here: these tests are about the first-pass list (see assessment.test.ts).
+  await repos.settings.put('budgets', { maxLlmPerRun: 0 }, now);
+  await repos.settings.put('thresholds', { prefilterMin: 0 }, now);
   await startRun(deps, { trigger: 'manual' });
   await bus.drain(deps);
   return deps;
@@ -102,6 +106,8 @@ describe('GET /api/groups', () => {
     expect(coach).toMatchObject({
       status: 'prefiltered',
       bestCv: 'Agile Coach CV',
+      finalScore: null,
+      assessment: null,
       filterReason: null,
       job: {
         employmentType: 'contract',

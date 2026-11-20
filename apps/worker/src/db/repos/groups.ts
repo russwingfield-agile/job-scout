@@ -1,11 +1,19 @@
 import type { GroupStatus } from '@job-scout/shared';
-import { count, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, lt, sql } from 'drizzle-orm';
 import type { Db } from '../client.js';
-import { cvs, jobCvSimilarity, jobGroups, jobs } from '../schema.js';
+import { assessments, cvs, jobCvSimilarity, jobGroups, jobProfileHits, jobs } from '../schema.js';
 
 export type GroupRow = typeof jobGroups.$inferSelect;
 export type NewGroup = typeof jobGroups.$inferInsert;
 export type GroupPatch = Partial<Omit<NewGroup, 'id'>>;
+
+const IN_CHUNK = 50;
+
+const chunks = <T>(items: T[], size: number): T[][] => {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+};
 
 export function groupsRepo(db: Db) {
   return {
@@ -25,15 +33,28 @@ export function groupsRepo(db: Db) {
       await db.update(jobGroups).set({ status }).where(eq(jobGroups.id, id));
     },
 
-    /** Jobs to show, best first (highest first-pass score, then newest), with the advert and best CV. */
+    async setStatusMany(ids: string[], status: GroupStatus): Promise<void> {
+      for (const batch of chunks(ids, IN_CHUNK)) {
+        await db.update(jobGroups).set({ status }).where(inArray(jobGroups.id, batch));
+      }
+    },
+
+    /**
+     * Jobs to show, best first: by final score once assessed, otherwise by first-pass score, then
+     * newest. Carries the advert, the best CV's label and the assessment (if any).
+     */
     async listWithJobs(statuses: GroupStatus[], limit: number) {
       return db
-        .select({ group: jobGroups, job: jobs, bestCv: cvs.label })
+        .select({ group: jobGroups, job: jobs, bestCv: cvs.label, assessment: assessments })
         .from(jobGroups)
         .innerJoin(jobs, eq(jobs.id, jobGroups.canonicalJobId))
         .leftJoin(cvs, eq(cvs.id, jobGroups.bestCvId))
+        .leftJoin(assessments, eq(assessments.groupId, jobGroups.id))
         .where(inArray(jobGroups.status, statuses))
-        .orderBy(desc(jobGroups.prefilterScore), desc(jobs.postedAt))
+        .orderBy(
+          desc(sql`coalesce(${jobGroups.finalScore}, ${jobGroups.prefilterScore})`),
+          desc(jobs.postedAt),
+        )
         .limit(limit);
     },
 
@@ -67,7 +88,44 @@ export function groupsRepo(db: Db) {
     },
 
     async similaritiesFor(groupId: string) {
-      return db.select().from(jobCvSimilarity).where(eq(jobCvSimilarity.groupId, groupId));
+      return db
+        .select()
+        .from(jobCvSimilarity)
+        .where(eq(jobCvSimilarity.groupId, groupId))
+        .orderBy(desc(jobCvSimilarity.similarity), asc(jobCvSimilarity.cvId));
+    },
+
+    /** Filtered groups first seen before `cutoff` (retention clean-up). */
+    async listFilteredBefore(cutoff: string): Promise<string[]> {
+      const rows = await db
+        .select({ id: jobGroups.id })
+        .from(jobGroups)
+        .where(and(eq(jobGroups.status, 'filtered'), lt(jobGroups.firstSeenAt, cutoff)));
+      return rows.map((r) => r.id);
+    },
+
+    /**
+     * Remove groups and everything hanging off them: postings, hits, similarities and assessment.
+     * Returns the job ids removed, so the caller can delete their vectors (`job:{id}`).
+     */
+    async deleteWithJobs(groupIds: string[]): Promise<string[]> {
+      const jobIds: string[] = [];
+      for (const batch of chunks(groupIds, IN_CHUNK)) {
+        const rows = await db
+          .select({ id: jobs.id })
+          .from(jobs)
+          .where(inArray(jobs.groupId, batch));
+        const ids = rows.map((r) => r.id);
+        jobIds.push(...ids);
+        for (const part of chunks(ids, IN_CHUNK)) {
+          await db.delete(jobProfileHits).where(inArray(jobProfileHits.jobId, part));
+        }
+        await db.delete(jobs).where(inArray(jobs.groupId, batch));
+        await db.delete(jobCvSimilarity).where(inArray(jobCvSimilarity.groupId, batch));
+        await db.delete(assessments).where(inArray(assessments.groupId, batch));
+        await db.delete(jobGroups).where(inArray(jobGroups.id, batch));
+      }
+      return jobIds;
     },
   };
 }

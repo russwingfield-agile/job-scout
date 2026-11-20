@@ -36,6 +36,18 @@ export function localParts(
   };
 }
 
+/**
+ * Is `slotKey` (e.g. "2026-11-20T17:00") the last scheduled slot of its day? Manual runs and keys
+ * we do not recognise are not. Used to do the once-a-day housekeeping after the evening run.
+ */
+export function isLastSlotOfDay(slotKey: string, now: Date, schedule: Schedule): boolean {
+  const slot = /^\d{4}-\d{2}-\d{2}T(\d{2}:\d{2})$/.exec(slotKey)?.[1];
+  if (slot === undefined) return false;
+  const group = DAY_GROUP[localParts(now, schedule.timezone).weekday] as DayGroup;
+  const sorted = [...schedule[group]].sort();
+  return sorted[sorted.length - 1] === slot;
+}
+
 export type DueSlot = {
   /** Unique per slot, e.g. "2026-11-20T07:00"; the run table's UNIQUE `slot_key`. */
   slotKey: string;

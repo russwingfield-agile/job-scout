@@ -16,6 +16,8 @@ const item = (
   id: 'g1',
   status: 'prefiltered',
   prefilterScore: 71.4,
+  finalScore: null,
+  assessment: null,
   filterReason: null,
   bestCv: 'Agile Coach',
   job: {
@@ -129,7 +131,7 @@ describe('ShortlistPage', () => {
     expect(rows).toHaveLength(3);
 
     const first = within(rows[1] as HTMLElement);
-    expect(first.getByText('71')).toBeInTheDocument();
+    expect(first.getByText('~71')).toBeInTheDocument();
     const link = first.getByRole('link', { name: /Enterprise Agile Coach/ });
     expect(link).toHaveAttribute('href', 'https://www.reed.co.uk/jobs/1');
     expect(link).toHaveAttribute('target', '_blank');
@@ -149,6 +151,56 @@ describe('ShortlistPage', () => {
     expect(second.getAllByText('Not stated')).toHaveLength(2);
 
     expect(screen.getByText('Showing 2 of 57')).toBeInTheDocument();
+  });
+
+  it('shows the AI score, headline and red flags for an assessed job, and says when the AI failed', async () => {
+    mockApi(() =>
+      json({
+        items: [
+          item({
+            status: 'new',
+            finalScore: 83.4,
+            assessment: {
+              status: 'ok',
+              fitScore: 88,
+              headline: 'Strong SAFe match at a bank',
+              strengths: [],
+              gaps: [],
+              redFlags: ['rate not stated', 'clearance required'],
+              recommendation: 'apply',
+            },
+          }),
+          item(
+            {
+              id: 'g2',
+              status: 'new',
+              assessment: {
+                status: 'failed',
+                fitScore: null,
+                headline: null,
+                strengths: [],
+                gaps: [],
+                redFlags: [],
+                recommendation: null,
+              },
+            },
+            { title: 'Scrum Master' },
+          ),
+        ],
+        total: 2,
+      }),
+    );
+    renderPage();
+    const rows = within(await screen.findByRole('table')).getAllByRole('row');
+
+    const assessed = within(rows[1] as HTMLElement);
+    expect(assessed.getByText('83')).toBeInTheDocument();
+    expect(assessed.getByText('Strong SAFe match at a bank')).toBeInTheDocument();
+    expect(assessed.getByText(/rate not stated · clearance required/)).toBeInTheDocument();
+
+    const failed = within(rows[2] as HTMLElement);
+    expect(failed.getByText('~71')).toBeInTheDocument();
+    expect(failed.getByText(/AI could not assess this job/)).toBeInTheDocument();
   });
 
   it('tells you what to do when there are no jobs yet', async () => {

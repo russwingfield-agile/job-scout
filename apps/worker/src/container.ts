@@ -50,6 +50,7 @@ type OptionalBindings = {
   VEC?: VectorizeLike;
   FETCH_Q?: QueueLike;
   PROCESS_Q?: QueueLike;
+  SCORE_Q?: QueueLike;
 };
 
 /**
@@ -101,11 +102,15 @@ export function createContainer(env: Env, overrides: Partial<Deps> = {}): Deps {
     vectors:
       overrides.vectors ??
       (optional.VEC ? new VectorizeStore(optional.VEC) : new D1VectorStore(repos.vectors, clock)),
-    // Job queues: until FETCH_Q and PROCESS_Q are bound, starting a run fails with NOT_CONFIGURED.
+    // Job queues: until all three are bound, starting a run fails with NOT_CONFIGURED.
     bus:
       overrides.bus ??
-      (optional.FETCH_Q && optional.PROCESS_Q
-        ? new QueueBus({ fetch: optional.FETCH_Q, process: optional.PROCESS_Q })
+      (optional.FETCH_Q && optional.PROCESS_Q && optional.SCORE_Q
+        ? new QueueBus({
+            fetch: optional.FETCH_Q,
+            process: optional.PROCESS_Q,
+            score: optional.SCORE_Q,
+          })
         : unavailable<Bus>('Job queues')),
   };
 }

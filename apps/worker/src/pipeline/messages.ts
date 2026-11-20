@@ -35,13 +35,23 @@ export const ProcessMessageSchema = z.object({
   jobId: z.string(),
 });
 
+/** Assess one job group with the LLM and compute its final score. */
+export const ScoreMessageSchema = z.object({
+  v: z.literal(1),
+  type: z.literal('score'),
+  runId: z.string(),
+  groupId: z.string(),
+});
+
 export const PipelineMessageSchema = z.discriminatedUnion('type', [
   FetchMessageSchema,
   ProcessMessageSchema,
+  ScoreMessageSchema,
 ]);
 
 export type FetchMessage = z.infer<typeof FetchMessageSchema>;
 export type ProcessMessage = z.infer<typeof ProcessMessageSchema>;
+export type ScoreMessage = z.infer<typeof ScoreMessageSchema>;
 export type PipelineMessage = z.infer<typeof PipelineMessageSchema>;
 
 /** Keys for the exactly-once counter claims. `enq:` keys guard enqueueing, the others completion. */
@@ -49,7 +59,15 @@ export const enqueueFetchKey = (runId: string, queryKey: string, page: number): 
   `enq:fetch:${runId}:${queryKey}:${page}`;
 export const enqueueProcessKey = (runId: string, jobId: string): string =>
   `enq:process:${runId}:${jobId}`;
-export const completionKey = (m: PipelineMessage): string =>
-  m.type === 'fetch'
-    ? `done:fetch:${m.runId}:${m.queryKey}:${m.page}`
-    : `done:process:${m.runId}:${m.jobId}`;
+export const enqueueScoreKey = (runId: string, groupId: string): string =>
+  `enq:score:${runId}:${groupId}`;
+export const completionKey = (m: PipelineMessage): string => {
+  switch (m.type) {
+    case 'fetch':
+      return `done:fetch:${m.runId}:${m.queryKey}:${m.page}`;
+    case 'process':
+      return `done:process:${m.runId}:${m.jobId}`;
+    case 'score':
+      return `done:score:${m.runId}:${m.groupId}`;
+  }
+};

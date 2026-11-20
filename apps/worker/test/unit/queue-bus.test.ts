@@ -32,41 +32,56 @@ const processMsg = (jobId: string): PipelineMessage => ({
   jobId,
 });
 
+const scoreMsg = (groupId: string): PipelineMessage => ({
+  v: 1,
+  type: 'score',
+  runId: 'r',
+  groupId,
+});
+
+function buses() {
+  const fetchQ = fakeQueue();
+  const processQ = fakeQueue();
+  const scoreQ = fakeQueue();
+  const bus = new QueueBus({ fetch: fetchQ.queue, process: processQ.queue, score: scoreQ.queue });
+  return { fetchQ, processQ, scoreQ, bus };
+}
+
 describe('QueueBus', () => {
   it('routes each message type to its own queue', async () => {
-    const fetchQ = fakeQueue();
-    const processQ = fakeQueue();
-    const bus = new QueueBus({ fetch: fetchQ.queue, process: processQ.queue });
+    const { fetchQ, processQ, scoreQ, bus } = buses();
 
     await bus.send(fetchMsg(0));
     await bus.send(processMsg('j1'), { delaySeconds: 30 });
+    await bus.send(scoreMsg('g1'));
 
     expect(fetchQ.sent).toHaveLength(1);
     expect(processQ.sent).toEqual([{ body: processMsg('j1'), options: { delaySeconds: 30 } }]);
+    expect(scoreQ.sent.map((s) => s.body)).toEqual([scoreMsg('g1')]);
   });
 
   it('batches by queue and splits at the 100-message limit', async () => {
-    const fetchQ = fakeQueue();
-    const processQ = fakeQueue();
-    const bus = new QueueBus({ fetch: fetchQ.queue, process: processQ.queue });
+    const { fetchQ, processQ, scoreQ, bus } = buses();
 
     const msgs = [
       ...Array.from({ length: 250 }, (_, i) => processMsg(`j${i}`)),
       fetchMsg(1),
       fetchMsg(2),
+      scoreMsg('g1'),
     ];
     await bus.sendBatch(msgs);
 
     expect(processQ.batches.map((b) => b.length)).toEqual([100, 100, 50]);
     expect(fetchQ.batches.map((b) => b.length)).toEqual([2]);
+    expect(scoreQ.batches.map((b) => b.length)).toEqual([1]);
     expect(processQ.batches[0]?.[0]?.body).toEqual(processMsg('j0'));
   });
 
   it('sends nothing for an empty batch', async () => {
-    const fetchQ = fakeQueue();
-    const processQ = fakeQueue();
-    await new QueueBus({ fetch: fetchQ.queue, process: processQ.queue }).sendBatch([]);
+    const { fetchQ, processQ, scoreQ, bus } = buses();
+    await bus.sendBatch([]);
     expect(fetchQ.batches).toEqual([]);
     expect(processQ.batches).toEqual([]);
+    expect(scoreQ.batches).toEqual([]);
   });
 });

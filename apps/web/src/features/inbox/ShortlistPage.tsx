@@ -26,8 +26,17 @@ function Row({ item, filtered }: { item: GroupListItem; filtered: boolean }) {
           <span className="text-xs text-[var(--muted)]">
             {describeFilterReason(item.filterReason)}
           </span>
+        ) : item.finalScore !== null ? (
+          <strong title="Overall score from the AI assessment">
+            {Math.round(item.finalScore)}
+          </strong>
         ) : (
-          <strong>{item.prefilterScore === null ? '—' : Math.round(item.prefilterScore)}</strong>
+          <span
+            className="text-[var(--muted)]"
+            title="First-pass score from text similarity. The AI has not assessed this job yet."
+          >
+            {item.prefilterScore === null ? '—' : `~${Math.round(item.prefilterScore)}`}
+          </span>
         )}
       </td>
       <td className="p-3">
@@ -48,6 +57,19 @@ function Row({ item, filtered }: { item: GroupListItem; filtered: boolean }) {
           {job.employmentType ?? ''}
           {job.contractLengthMonths ? ` · ${job.contractLengthMonths} months` : ''}
         </div>
+        {item.assessment?.status === 'ok' ? (
+          <div className="mt-1 grid gap-0.5 text-xs">
+            {item.assessment.headline ? <p>{item.assessment.headline}</p> : null}
+            {item.assessment.redFlags.length > 0 ? (
+              <p className="text-[var(--muted)]">⚠ {item.assessment.redFlags.join(' · ')}</p>
+            ) : null}
+          </div>
+        ) : null}
+        {item.assessment?.status === 'failed' ? (
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            The AI could not assess this job; showing the first-pass score.
+          </p>
+        ) : null}
       </td>
       <td className="p-3">{job.employerName ?? '—'}</td>
       <td className="p-3">{job.location ?? '—'}</td>
@@ -74,9 +96,9 @@ export function ShortlistPage() {
       <div>
         <h2 className="text-xl font-semibold">Shortlist</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Jobs found by your scans, ordered by how closely they match your CV. This is a first-pass
-          score from text similarity. The full Inbox with AI ranking, Shortlist and Skip buttons is
-          coming.
+          Jobs found by your scans, best first. A plain number is the AI's overall score. A number
+          with ~ is a first-pass estimate from text similarity, for jobs the AI has not assessed
+          yet. The full Inbox with Shortlist and Skip buttons is coming.
         </p>
       </div>
 

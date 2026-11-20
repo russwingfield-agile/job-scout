@@ -14,7 +14,7 @@ const DAY_MS = 86_400_000;
 
 export type PipelineDeps = Pick<
   Deps,
-  'repos' | 'clock' | 'log' | 'settings' | 'source' | 'embedder' | 'vectors' | 'bus'
+  'repos' | 'clock' | 'log' | 'settings' | 'source' | 'embedder' | 'vectors' | 'bus' | 'llm'
 >;
 
 export type StartRunInput = { trigger: 'cron'; slotKey: string } | { trigger: 'manual' };

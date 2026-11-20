@@ -6,6 +6,7 @@ interface __BaseEnv_Env {
 	DB: D1Database;
 	FETCH_Q: Queue;
 	PROCESS_Q: Queue;
+	SCORE_Q: Queue;
 	AI: Ai;
 	TZ_NAME: "Europe/London";
 	ACCESS_TEAM_DOMAIN: "still-dew-77a8.cloudflareaccess.com";

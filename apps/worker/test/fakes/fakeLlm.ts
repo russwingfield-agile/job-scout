@@ -21,6 +21,11 @@ export class FakeLlm implements LlmClient {
     return new FakeLlm([], { repeat: reply });
   }
 
+  /** Script further one-off replies, played before any repeating reply. */
+  enqueue(...replies: ScriptedReply[]): void {
+    this.queue.push(...replies);
+  }
+
   async complete(req: LlmRequest): Promise<LlmResponse> {
     this.requests.push(req);
     const reply = this.queue.shift() ?? this.repeat;
