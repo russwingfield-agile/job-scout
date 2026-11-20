@@ -1,7 +1,8 @@
 import type { GroupStatus } from '@job-scout/shared';
-import { and, asc, count, desc, eq, inArray, lt, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gte, inArray, lt, type SQL, sql } from 'drizzle-orm';
 import type { Db } from '../client.js';
 import {
+  applications,
   assessments,
   cvs,
   jobCvSimilarity,
@@ -16,6 +17,29 @@ export type NewGroup = typeof jobGroups.$inferInsert;
 export type GroupPatch = Partial<Omit<NewGroup, 'id'>>;
 
 const IN_CHUNK = 50;
+
+/** Optional narrowing of the job list (the Inbox filter bar). */
+export type GroupFilters = {
+  type?: 'contract' | 'permanent' | undefined;
+  cvId?: string | undefined;
+  minScore?: number | undefined;
+  workMode?: 'remote' | 'hybrid' | 'onsite' | undefined;
+  ir35?: 'inside' | 'outside' | undefined;
+  /** Only jobs posted on or after this ISO time. */
+  postedSince?: string | undefined;
+};
+
+function filterConditions(f: GroupFilters): SQL[] {
+  const score = sql`coalesce(${jobGroups.finalScore}, ${jobGroups.prefilterScore})`;
+  return [
+    ...(f.type ? [eq(jobs.employmentType, f.type)] : []),
+    ...(f.cvId ? [eq(jobGroups.bestCvId, f.cvId)] : []),
+    ...(f.minScore !== undefined ? [sql`${score} >= ${f.minScore}`] : []),
+    ...(f.workMode ? [eq(jobs.workMode, f.workMode)] : []),
+    ...(f.ir35 ? [eq(jobs.ir35, f.ir35)] : []),
+    ...(f.postedSince ? [gte(jobs.postedAt, f.postedSince)] : []),
+  ];
+}
 
 const chunks = <T>(items: T[], size: number): T[][] => {
   const out: T[][] = [];
@@ -49,16 +73,23 @@ export function groupsRepo(db: Db) {
 
     /**
      * Jobs to show, best first: by final score once assessed, otherwise by first-pass score, then
-     * newest. Carries the advert, the best CV's label and the assessment (if any).
+     * newest. Carries the advert, the best CV's label, the assessment and what you recorded.
      */
-    async listWithJobs(statuses: GroupStatus[], limit: number) {
+    async listWithJobs(statuses: GroupStatus[], limit: number, filters: GroupFilters = {}) {
       return db
-        .select({ group: jobGroups, job: jobs, bestCv: cvs.label, assessment: assessments })
+        .select({
+          group: jobGroups,
+          job: jobs,
+          bestCv: cvs.label,
+          assessment: assessments,
+          application: applications,
+        })
         .from(jobGroups)
         .innerJoin(jobs, eq(jobs.id, jobGroups.canonicalJobId))
         .leftJoin(cvs, eq(cvs.id, jobGroups.bestCvId))
         .leftJoin(assessments, eq(assessments.groupId, jobGroups.id))
-        .where(inArray(jobGroups.status, statuses))
+        .leftJoin(applications, eq(applications.groupId, jobGroups.id))
+        .where(and(inArray(jobGroups.status, statuses), ...filterConditions(filters)))
         .orderBy(
           desc(sql`coalesce(${jobGroups.finalScore}, ${jobGroups.prefilterScore})`),
           desc(jobs.postedAt),
@@ -66,11 +97,41 @@ export function groupsRepo(db: Db) {
         .limit(limit);
     },
 
-    async countByStatus(statuses: GroupStatus[]): Promise<number> {
+    /** One group with its advert, best CV, assessment and application, whatever its status. */
+    async getWithJob(id: string) {
+      return db
+        .select({
+          group: jobGroups,
+          job: jobs,
+          bestCv: cvs.label,
+          assessment: assessments,
+          application: applications,
+        })
+        .from(jobGroups)
+        .innerJoin(jobs, eq(jobs.id, jobGroups.canonicalJobId))
+        .leftJoin(cvs, eq(cvs.id, jobGroups.bestCvId))
+        .leftJoin(assessments, eq(assessments.groupId, jobGroups.id))
+        .leftJoin(applications, eq(applications.groupId, jobGroups.id))
+        .where(eq(jobGroups.id, id))
+        .get();
+    },
+
+    async countByStatus(statuses: GroupStatus[], filters: GroupFilters = {}): Promise<number> {
       const row = await db
         .select({ n: count() })
         .from(jobGroups)
-        .where(inArray(jobGroups.status, statuses))
+        .innerJoin(jobs, eq(jobs.id, jobGroups.canonicalJobId))
+        .where(and(inArray(jobGroups.status, statuses), ...filterConditions(filters)))
+        .get();
+      return row?.n ?? 0;
+    },
+
+    /** Groups first seen since `since` that are waiting for your decision. */
+    async countInboxSince(since: string): Promise<number> {
+      const row = await db
+        .select({ n: count() })
+        .from(jobGroups)
+        .where(and(eq(jobGroups.status, 'new'), gte(jobGroups.firstSeenAt, since)))
         .get();
       return row?.n ?? 0;
     },

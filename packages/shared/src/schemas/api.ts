@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { AssessmentResultSchema } from './assessment.js';
 import {
   ApplyRecommendationSchema,
   AssessmentStatusSchema,
@@ -8,6 +9,8 @@ import {
   RunPhaseSchema,
   RunStatusSchema,
   RunTriggerSchema,
+  SeniorityMatchSchema,
+  SkipReasonSchema,
   WorkModeSchema,
 } from './enums.js';
 import { SettingsPatchSchema, SettingsSchema } from './settings.js';
@@ -111,11 +114,30 @@ export const GroupListItemSchema = z.object({
       gaps: z.array(z.string()),
       redFlags: z.array(z.string()),
       recommendation: ApplyRecommendationSchema.nullable(),
+      seniorityMatch: SeniorityMatchSchema.nullable().default(null),
+      onsiteDaysPerWeek: z.number().nullable().default(null),
     })
     .nullable(),
   /** Why a filtered job was hidden, e.g. "below_min_day_rate". */
   filterReason: z.string().nullable(),
   bestCv: z.string().nullable(),
+  bestCvId: z.string().nullable().default(null),
+  /** The same role posted elsewhere (other agencies), best pay first. Empty for a single posting. */
+  alsoPostedBy: z
+    .array(z.object({ id: z.string(), employerName: z.string().nullable(), payText: z.string() }))
+    .default([]),
+  /** Postings that appeared after you acted on this job. */
+  newPostingsSinceAction: z.number().int().default(0),
+  /** What you recorded when you acted on it. */
+  application: z
+    .object({
+      cvIdSent: z.string().nullable(),
+      appliedAt: z.string().nullable(),
+      notes: z.string().nullable(),
+      skipReason: SkipReasonSchema.nullable(),
+    })
+    .nullable()
+    .default(null),
   job: z.object({
     title: z.string().nullable(),
     employerName: z.string().nullable(),
@@ -147,10 +169,91 @@ export const RescoreResponseSchema = z.object({
 export type RescoreResponse = z.infer<typeof RescoreResponseSchema>;
 
 export const GroupListQuerySchema = z.object({
-  show: z.enum(['shortlist', 'filtered']).default('shortlist'),
+  /** shortlist = awaiting your decision; more = weaker first-pass matches; pipeline = acted on. */
+  show: z.enum(['shortlist', 'filtered', 'more', 'pipeline']).default('shortlist'),
   limit: z.coerce.number().int().min(1).max(200).default(100),
+  type: z.enum(['contract', 'permanent']).optional(),
+  cvId: z.string().min(1).optional(),
+  minScore: z.coerce.number().min(0).max(100).optional(),
+  workMode: WorkModeSchema.exclude(['unknown']).optional(),
+  ir35: Ir35Schema.exclude(['unknown']).optional(),
+  postedWithinDays: z.coerce.number().int().min(1).max(365).optional(),
 });
+export type GroupListQuery = z.infer<typeof GroupListQuerySchema>;
+
+/** PATCH /api/groups/:id — move a job between states, with what you want to record. */
+export const UpdateGroupRequestSchema = z.object({
+  status: GroupStatusSchema.extract([
+    'new',
+    'shortlisted',
+    'applied',
+    'interview',
+    'offer',
+    'rejected',
+    'skipped',
+    'withdrawn',
+  ]),
+  /** Required when moving to `applied`: which CV you sent. */
+  cvIdSent: z.string().min(1).optional(),
+  appliedAt: z.iso.datetime().optional(),
+  skipReason: SkipReasonSchema.optional(),
+  notes: z.string().max(5_000).optional(),
+});
+export type UpdateGroupRequest = z.infer<typeof UpdateGroupRequestSchema>;
+
+/** GET /api/groups/:id — everything about one job. */
+export const GroupDetailSchema = z.object({
+  item: GroupListItemSchema,
+  postings: z.array(
+    z.object({
+      id: z.string(),
+      employerName: z.string().nullable(),
+      isAgency: z.boolean().nullable(),
+      location: z.string().nullable(),
+      payText: z.string(),
+      postedAt: z.string().nullable(),
+      url: z.string().nullable(),
+      externalApplyUrl: z.string().nullable(),
+    }),
+  ),
+  descriptionText: z.string().nullable(),
+  assessment: AssessmentResultSchema.nullable(),
+  cvScores: z.array(
+    z.object({
+      cvId: z.string(),
+      label: z.string(),
+      similarity: z.number().nullable(),
+      score: z.number().nullable(),
+    }),
+  ),
+  history: z.array(
+    z.object({
+      id: z.number().int(),
+      from: GroupStatusSchema.nullable(),
+      to: GroupStatusSchema.nullable(),
+      at: z.string().nullable(),
+    }),
+  ),
+});
+export type GroupDetail = z.infer<typeof GroupDetailSchema>;
+
+/** GET /api/stats — the numbers in the page header. */
+export const StatsResponseSchema = z.object({
+  newToday: z.number().int(),
+  inbox: z.number().int(),
+  shortlisted: z.number().int(),
+  appliedThisWeek: z.number().int(),
+  /** ISO time of the next scheduled scan, or null when nothing is scheduled. */
+  nextScanAt: z.string().nullable(),
+  /** Share of today's AI allowance used, 0–100. */
+  aiBudgetPercent: z.number(),
+});
+export type StatsResponse = z.infer<typeof StatsResponseSchema>;
 
 /** POST /api/groups/clear: how many jobs were forgotten. */
 export const ClearJobsResponseSchema = z.object({ removed: z.number().int() });
 export type ClearJobsResponse = z.infer<typeof ClearJobsResponseSchema>;
+
+/** PUT /api/groups/:id/notes */
+export const UpdateNotesRequestSchema = z.object({ notes: z.string().max(5_000) });
+export type UpdateNotesRequest = z.infer<typeof UpdateNotesRequestSchema>;

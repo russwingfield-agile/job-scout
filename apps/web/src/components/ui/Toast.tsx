@@ -1,7 +1,8 @@
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from 'react';
 
 export type ToastKind = 'success' | 'error' | 'warning';
-type ToastItem = { id: number; kind: ToastKind; message: string };
+export type ToastAction = { label: string; onClick: () => void };
+type ToastItem = { id: number; kind: ToastKind; message: string; action?: ToastAction | undefined };
 
 const AUTO_DISMISS_MS = 6_000;
 const KIND_STYLE: Record<ToastKind, string> = {
@@ -15,7 +16,7 @@ const KIND_LABEL: Record<ToastKind, string> = {
   warning: 'Heads up',
 };
 
-type ToastApi = { push: (kind: ToastKind, message: string) => void };
+type ToastApi = { push: (kind: ToastKind, message: string, action?: ToastAction) => void };
 const ToastContext = createContext<ToastApi | null>(null);
 
 export function useToast(): ToastApi {
@@ -33,9 +34,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     [],
   );
   const push = useCallback(
-    (kind: ToastKind, message: string) => {
+    (kind: ToastKind, message: string, action?: ToastAction) => {
       const id = Date.now() + Math.random();
-      setItems((all) => [...all, { id, kind, message }]);
+      setItems((all) => [...all, { id, kind, message, action }]);
       setTimeout(() => dismiss(id), AUTO_DISMISS_MS);
     },
     [dismiss],
@@ -59,6 +60,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 <strong>{KIND_LABEL[t.kind]}: </strong>
                 {t.message}
               </p>
+              {t.action ? (
+                <button
+                  type="button"
+                  className="font-semibold underline"
+                  onClick={() => {
+                    t.action?.onClick();
+                    dismiss(t.id);
+                  }}
+                >
+                  {t.action.label}
+                </button>
+              ) : null}
               <button
                 type="button"
                 aria-label="Dismiss"

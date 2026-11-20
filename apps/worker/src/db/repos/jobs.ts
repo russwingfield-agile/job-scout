@@ -132,6 +132,15 @@ export function jobsRepo(db: Db) {
         .get();
     },
 
+    /** Every posting in the given groups. */
+    async listByGroups(groupIds: string[]): Promise<JobRow[]> {
+      const rows: JobRow[] = [];
+      for (const batch of chunks(groupIds, IN_CHUNK)) {
+        rows.push(...(await db.select().from(jobs).where(inArray(jobs.groupId, batch))));
+      }
+      return rows;
+    },
+
     async listByGroup(groupId: string): Promise<JobRow[]> {
       return db.select().from(jobs).where(eq(jobs.groupId, groupId));
     },

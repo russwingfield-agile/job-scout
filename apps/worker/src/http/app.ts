@@ -10,6 +10,7 @@ import { healthRoute } from './routes/health.js';
 import { profilesRoute } from './routes/profiles.js';
 import { runsRoute } from './routes/runs.js';
 import { settingsRoute } from './routes/settings.js';
+import { statsRoute } from './routes/stats.js';
 import type { AppEnv } from './types.js';
 
 /** `makeDeps` lets tests inject fakes; production builds the container from the Worker env. */
@@ -31,6 +32,7 @@ export function createApp(makeDeps: (env: Env) => Deps = (env) => createContaine
     .route('/cvs', cvsRoute)
     .route('/profiles', profilesRoute)
     .route('/groups', groupsRoute)
+    .route('/stats', statsRoute)
     .route('/runs', runsRoute)
     .route('/dev', devRoute);
 }

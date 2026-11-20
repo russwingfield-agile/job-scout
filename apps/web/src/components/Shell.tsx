@@ -1,8 +1,11 @@
 import { NavLink, Outlet } from 'react-router';
+import { useStats } from '../api/queries.js';
+import { formatNextScan } from '../lib/triage.js';
 import { NAV_ITEMS } from '../router.js';
 import { ThemeToggle } from './ThemeToggle.js';
 
 export function Shell() {
+  const stats = useStats();
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
       <aside
@@ -30,9 +33,31 @@ export function Shell() {
           className="flex items-center justify-between border-b px-6 py-3"
           style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
         >
-          <p className="text-sm" style={{ color: 'var(--muted)' }}>
-            Stats coming soon
-          </p>
+          {stats.data ? (
+            <ul
+              aria-label="Today"
+              className="flex flex-wrap gap-x-5 gap-y-1 text-sm"
+              style={{ color: 'var(--muted)' }}
+            >
+              <li>
+                <strong style={{ color: 'var(--text)' }}>{stats.data.newToday}</strong> new today
+              </li>
+              <li>
+                <strong style={{ color: 'var(--text)' }}>{stats.data.shortlisted}</strong>{' '}
+                shortlisted
+              </li>
+              <li>
+                <strong style={{ color: 'var(--text)' }}>{stats.data.appliedThisWeek}</strong>{' '}
+                applied this week
+              </li>
+              <li>Next scan {formatNextScan(stats.data.nextScanAt)}</li>
+              <li>AI today {stats.data.aiBudgetPercent}%</li>
+            </ul>
+          ) : (
+            <p className="text-sm" style={{ color: 'var(--muted)' }}>
+              &nbsp;
+            </p>
+          )}
           <ThemeToggle />
         </header>
         <main className="flex-1 p-6">

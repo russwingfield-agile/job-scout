@@ -67,3 +67,16 @@ export function dueSlot(now: Date, schedule: Schedule): DueSlot | null {
   const slot = schedule[group].find((s) => s.slice(0, 2) === hour);
   return slot === undefined ? null : { slotKey: `${date}T${slot}`, slot };
 }
+
+const HOUR_MS = 3_600_000;
+const LOOKAHEAD_HOURS = 24 * 8;
+
+/** The next top-of-the-hour at which a scheduled scan is due, after `now`; null if nothing is scheduled. */
+export function nextSlotTime(now: Date, schedule: Schedule): Date | null {
+  const firstHour = Math.floor(now.getTime() / HOUR_MS) * HOUR_MS + HOUR_MS;
+  for (let i = 0; i < LOOKAHEAD_HOURS; i++) {
+    const candidate = new Date(firstHour + i * HOUR_MS);
+    if (dueSlot(candidate, schedule)) return candidate;
+  }
+  return null;
+}

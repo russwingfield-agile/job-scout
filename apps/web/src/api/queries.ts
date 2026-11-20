@@ -3,14 +3,20 @@ import {
   CvDetailSchema,
   CvListResponseSchema,
   CvMutationResponseSchema,
+  GroupDetailSchema,
+  type GroupListItem,
   GroupListResponseSchema,
+  type GroupStatus,
+  RescoreResponseSchema,
   RunDetailSchema,
   RunListResponseSchema,
   SearchProfileSchema,
   type Settings,
   SettingsSchema,
   StartRunResponseSchema,
+  StatsResponseSchema,
   type UpdateCvRequest,
+  type UpdateGroupRequest,
   type UpdateSearchProfile,
 } from '@job-scout/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -115,12 +121,6 @@ export function useStartRun() {
   });
 }
 
-export const useGroups = (show: 'shortlist' | 'filtered') =>
-  useQuery({
-    queryKey: ['groups', show] as const,
-    queryFn: () => api(`/groups?show=${show}&limit=100`, GroupListResponseSchema),
-  });
-
 /** Forget every job you have not acted on, so the next run finds them again from scratch. */
 export function useClearJobs() {
   const qc = useQueryClient();
@@ -129,3 +129,116 @@ export function useClearJobs() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['groups'] }),
   });
 }
+
+export type GroupView = 'shortlist' | 'more' | 'filtered' | 'pipeline';
+
+export type GroupFilterParams = {
+  show: GroupView;
+  type?: 'contract' | 'permanent' | undefined;
+  cvId?: string | undefined;
+  minScore?: number | undefined;
+  workMode?: 'remote' | 'hybrid' | 'onsite' | undefined;
+  ir35?: 'inside' | 'outside' | undefined;
+  postedWithinDays?: number | undefined;
+};
+
+const queryString = (p: GroupFilterParams): string => {
+  const q = new URLSearchParams({ show: p.show, limit: '100' });
+  if (p.type) q.set('type', p.type);
+  if (p.cvId) q.set('cvId', p.cvId);
+  if (p.minScore) q.set('minScore', String(p.minScore));
+  if (p.workMode) q.set('workMode', p.workMode);
+  if (p.ir35) q.set('ir35', p.ir35);
+  if (p.postedWithinDays) q.set('postedWithinDays', String(p.postedWithinDays));
+  return q.toString();
+};
+
+export const useGroups = (params: GroupFilterParams) =>
+  useQuery({
+    queryKey: ['groups', params] as const,
+    queryFn: () => api(`/groups?${queryString(params)}`, GroupListResponseSchema),
+  });
+
+export const useGroup = (id: string | null) =>
+  useQuery({
+    queryKey: ['group', id] as const,
+    queryFn: () => api(`/groups/${id}`, GroupDetailSchema),
+    enabled: id !== null,
+  });
+
+export const useStats = () =>
+  useQuery({
+    queryKey: ['stats'] as const,
+    queryFn: () => api('/stats', StatsResponseSchema),
+    refetchInterval: 60_000,
+  });
+
+/** Score badge thresholds (Strong / Good / Maybe) from Settings. */
+export const useThresholds = () =>
+  useQuery({
+    queryKey: ['settings', 'thresholds'] as const,
+    queryFn: () => api('/settings', SettingsSchema.pick({ thresholds: true })),
+    select: (s) => s.thresholds,
+  });
+
+type GroupsCache = [readonly unknown[], { items: GroupListItem[]; total: number } | undefined][];
+
+/**
+ * Act on a job. The card leaves its list immediately (optimistic); if the server refuses, the list
+ * is put back and the error is shown. Everything is refetched afterwards so the page tells the truth.
+ */
+export function useUpdateGroup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, update }: { id: string; update: UpdateGroupRequest }) =>
+      api(`/groups/${id}`, z.object({ status: z.string() }), {
+        method: 'PATCH',
+        body: JSON.stringify(update),
+      }),
+    onMutate: async ({ id }) => {
+      await qc.cancelQueries({ queryKey: ['groups'] });
+      const snapshot: GroupsCache = qc.getQueriesData({ queryKey: ['groups'] });
+      for (const [key, data] of snapshot) {
+        if (!data) continue;
+        qc.setQueryData(key, {
+          items: data.items.filter((i) => i.id !== id),
+          total: Math.max(0, data.total - (data.items.some((i) => i.id === id) ? 1 : 0)),
+        });
+      }
+      return { snapshot };
+    },
+    onError: (_err, _vars, ctx) => {
+      for (const [key, data] of ctx?.snapshot ?? []) qc.setQueryData(key, data);
+    },
+    onSettled: (_data, _err, vars) => {
+      void qc.invalidateQueries({ queryKey: ['groups'] });
+      void qc.invalidateQueries({ queryKey: ['stats'] });
+      void qc.invalidateQueries({ queryKey: ['group', vars.id] });
+    },
+  });
+}
+
+export function useSaveNotes(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (notes: string) =>
+      api(`/groups/${id}/notes`, z.object({ ok: z.boolean() }), {
+        method: 'PUT',
+        body: JSON.stringify({ notes }),
+      }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['group', id] }),
+  });
+}
+
+export function useRescore(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api(`/groups/${id}/rescore`, RescoreResponseSchema, { method: 'POST' }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['group', id] });
+      void qc.invalidateQueries({ queryKey: ['groups'] });
+    },
+  });
+}
+
+export type { GroupStatus };
