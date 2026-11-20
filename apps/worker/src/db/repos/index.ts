@@ -9,6 +9,7 @@ import { runsRepo } from './runs.js';
 import { settingsRepo } from './settings.js';
 import { sourceCallsRepo } from './sourceCalls.js';
 import { usageRepo } from './usage.js';
+import { vectorsRepo } from './vectors.js';
 
 export function createRepos(db: Db) {
   return {
@@ -22,6 +23,7 @@ export function createRepos(db: Db) {
     applications: applicationsRepo(db),
     usage: usageRepo(db),
     sourceCalls: sourceCallsRepo(db),
+    vectors: vectorsRepo(db),
   };
 }
 

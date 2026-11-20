@@ -18,6 +18,7 @@ const EXPECTED_TABLES = [
   'source_calls',
   'status_history',
   'usage_daily',
+  'vectors',
 ];
 
 const EXPECTED_INDEXES = [
@@ -26,6 +27,7 @@ const EXPECTED_INDEXES = [
   'idx_jobs_group_id',
   'idx_jobs_posted_at',
   'idx_run_errors_run_id',
+  'idx_vectors_kind_posted_ts',
   'idx_status_history_group_id',
   'uq_jobs_source_job',
 ];

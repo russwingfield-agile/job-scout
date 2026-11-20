@@ -1,5 +1,6 @@
 import { accessVerifierFromEnv } from './adapters/access.js';
 import { systemClock } from './adapters/clock.js';
+import { D1VectorStore } from './adapters/d1Vectors.js';
 import { R2Blobs, type R2BucketLike } from './adapters/r2.js';
 import { ReedAdapter } from './adapters/reed/adapter.js';
 import { ReedClient } from './adapters/reed/client.js';
@@ -45,8 +46,9 @@ type OptionalBindings = { CVS?: R2BucketLike; VEC?: VectorizeLike };
 
 /**
  * DI root: the only place adapters are constructed. Tests pass `overrides` to inject fakes.
- * R2 and Vectorize are optional bindings: until they are configured, those ports fail with a clear
- * NOT_CONFIGURED error (HTTP 503) instead of the whole Worker failing to start.
+ * R2 is an optional binding: until it is configured, CV storage fails with a clear NOT_CONFIGURED
+ * error (HTTP 503) instead of the whole Worker failing to start. Vectors use Vectorize when bound,
+ * otherwise D1.
  */
 export function createContainer(env: Env, overrides: Partial<Deps> = {}): Deps {
   const db = overrides.db ?? createDb(env.DB);
@@ -87,8 +89,9 @@ export function createContainer(env: Env, overrides: Partial<Deps> = {}): Deps {
     docs: overrides.docs ?? new WorkersAiDocParser(ai),
     embedder: overrides.embedder ?? new WorkersAiEmbedder(ai, embedding, embeddingDims),
     llm: overrides.llm ?? new WorkersAiLlm(ai),
+    // Vectorize if its binding is configured, otherwise the built-in D1 store (no extra resource).
     vectors:
       overrides.vectors ??
-      (optional.VEC ? new VectorizeStore(optional.VEC) : unavailable<VectorStore>('Vectorize')),
+      (optional.VEC ? new VectorizeStore(optional.VEC) : new D1VectorStore(repos.vectors, clock)),
   };
 }

@@ -28,6 +28,25 @@ import {
 
 /** Single source of truth for the database (SPEC §11). Timestamps are ISO-8601 UTC strings. */
 
+/**
+ * Embedding vectors for CVs and jobs (the D1-backed `VectorStore`). Used instead of Vectorize so no
+ * extra Cloudflare resource is needed; at our scale (hundreds of recent jobs, a few CVs) a scan with
+ * cosine in code is fast. `embedding` is base64 Float32 (see core/vectors.ts).
+ */
+export const vectors = sqliteTable(
+  'vectors',
+  {
+    id: text('id').primaryKey(),
+    kind: text('kind').$type<'job' | 'cv'>().notNull(),
+    /** Posting time, epoch milliseconds (jobs only). */
+    postedTs: integer('posted_ts'),
+    groupId: text('group_id'),
+    embedding: text('embedding').notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (t) => [index('idx_vectors_kind_posted_ts').on(t.kind, t.postedTs)],
+);
+
 export const settings = sqliteTable('settings', {
   key: text('key').primaryKey(),
   valueJson: text('value_json', { mode: 'json' }).$type<unknown>().notNull(),

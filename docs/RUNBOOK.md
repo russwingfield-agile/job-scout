@@ -105,18 +105,15 @@ curl -X POST http://localhost:5173/api/dev/reed-probe -H "Content-Type: applicat
 The route returns 404 unless `ENV=dev`. Every call counts against the daily Reed budget. To record a new fixture:
 `node scripts/record-reed-fixture.mjs details <name> <jobId>` (or `search <name> key=value ...`).
 
-## Enabling CV storage and search (R2 + Vectorize)
+## Enabling CV storage (R2)
 
-The CV endpoints return 503 `NOT_CONFIGURED` until both resources exist and their bindings are enabled.
-Both can be created in the Cloudflare dashboard, no command line needed:
+The CV upload endpoint returns 503 `NOT_CONFIGURED` until an R2 bucket exists and its binding is enabled.
+Create the bucket in the Cloudflare dashboard (no command line needed):
 
-1. **R2:** Storage & databases → R2 object storage → Create bucket → name `job-scout-cvs` (leave defaults).
-2. **Vectorize:** Storage & databases → Vectorize → Create index → name `job-scout-vectors`, dimensions `768`,
-   metric `cosine` (or choose the preset for `@cf/baai/bge-base-en-v1.5`).
+1. Storage & databases → R2 object storage → Create bucket → name `job-scout-cvs` (leave defaults).
+2. Uncomment the `r2_buckets` block in `apps/worker/wrangler.jsonc`, run `pnpm cf:types`, and push.
 
-No metadata indexes are needed: kind/date filtering is done in code after the query (see DECISIONS.md, M4 follow-up).
+If the Deploy workflow then fails with an authentication error, add **Workers R2 Storage → Edit** to the
+`CLOUDFLARE_API_TOKEN` (Cloudflare → My Profile → API Tokens → edit the token). R2 needs a payment method on file.
 
-Then uncomment the `r2_buckets` and `vectorize` blocks in `apps/worker/wrangler.jsonc`, run `pnpm cf:types`, and push.
-If the Deploy workflow then fails with an authentication error, add **Workers R2 Storage → Edit** and
-**Vectorize → Edit** to the `CLOUDFLARE_API_TOKEN` (Cloudflare → My Profile → API Tokens → edit the token).
-R2 requires a payment method on file; Cloudflare's docs are unclear whether Vectorize is on the Workers Free plan.
+CV and job fingerprints (embeddings) are stored in D1 — **no Vectorize index is needed** (see DECISIONS.md).
