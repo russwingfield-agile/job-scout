@@ -66,11 +66,16 @@ export async function processJob(deps: PipelineDeps, msg: ProcessMessage): Promi
 
   const settings = await deps.settings.get();
   const now = toIso(clock.now());
-  const profiles = (
+  const hits = await repos.jobs.profileHitsFor(job.id);
+  const finders = (
     await Promise.all(
-      (await repos.jobs.profileIdsFor(job.id)).map((id) => repos.profiles.getById(id)),
+      hits.map(async (hit) => {
+        const profile = await repos.profiles.getById(hit.profileId);
+        return profile ? { profile, foundBy: { scoped: hit.scoped } } : undefined;
+      }),
     )
   ).filter(defined);
+  const profiles = finders.map((f) => f.profile);
 
   // 1. The full advert (one Reed call), or the copy stored by an earlier attempt.
   let raw: unknown;
@@ -114,7 +119,7 @@ export async function processJob(deps: PipelineDeps, msg: ProcessMessage): Promi
   await repos.jobs.update(job.id, jobColumns(normalised, settings.working, JSON.stringify(raw)));
 
   // 3. Hard filters: a job passes if it passes for any profile that found it.
-  const filter = evaluateAcrossProfiles(normalised, profiles, settings.blocklist, settings.working);
+  const filter = evaluateAcrossProfiles(normalised, finders, settings.blocklist, settings.working);
 
   // 4. Group (one per job until M6 adds de-duplication). Created even when filtered, so the job
   //    stays visible under "show filtered" with its reason.

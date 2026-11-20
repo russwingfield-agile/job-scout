@@ -129,3 +129,9 @@ Verified with a real key (Basic auth, key as username, empty password). Recorded
 - **ASSUMPTION (unverified):** Reed returns search results newest-first (or close to it), which is why "newest first within a page, stop paging when a page yields no work" is sound. If results are ranked by relevance instead, older matching jobs could be revisited before newer ones; revisit if the shortlist looks stale.
 - **Temporary shortlist view (plan "early-value shortcut").** `GET /api/groups?show=shortlist|filtered&limit=` and a Shortlist page list jobs by first-pass similarity score, with the filtered view explaining why each was hidden. Replaced by the full Inbox in M8. The nav item "Inbox" is labelled "Shortlist" until then.
 - **Test harness:** `FakeSource` now records calls through the real recorder, so Reed budget accounting in tests matches production.
+
+### Location fix (2026-11-20)
+
+- **Problem:** a profile location of "Remote" searches Reed with no place restriction, which returns jobs from the whole country; nothing then required those jobs to be remote (SPEC §6.2 says it should), so the shortlist showed jobs from many locations.
+- **Fix:** `job_profile_hits.scoped` (migration 0003) records whether a place-restricted search found the job. A job found only by the unrestricted search must itself be remote (`not_remote` filter; unlike other rules, an unknown work mode does not pass here). A scoped find always wins. Existing hits default to scoped, so jobs already in the database from before this change are not re-checked.
+- **Still to do:** a "clear found jobs" action to start fresh after profile changes; an integration test of the London + Remote scenario through the whole pipeline (unit tests of the rule exist).

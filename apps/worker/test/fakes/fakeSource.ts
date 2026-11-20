@@ -71,7 +71,11 @@ export class FakeSource implements SourceAdapter {
     });
     const failure = this.searchError?.(this.searches.length);
     if (failure) throw failure;
-    const pages = this.data.pages[q.keywords] ?? [];
+    // Pages may be keyed by "keywords@location" ("keywords@remote" for no location) or just keywords.
+    const pages =
+      this.data.pages[`${q.keywords}@${q.location ?? 'remote'}`] ??
+      this.data.pages[q.keywords] ??
+      [];
     return {
       refs: pages[page] ?? [],
       total: pages.flat().length,

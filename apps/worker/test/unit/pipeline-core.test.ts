@@ -231,6 +231,50 @@ describe('evaluateFilters', () => {
     expect(check({}, {}, block({ employers: ['someone else'] })).pass).toBe(true);
   });
 
+  describe('location (the location-free "Remote" search returns the whole country)', () => {
+    const remoteProfile = { locations: ['London', 'Remote'] };
+    const unscoped = (j: Overrides, p: Partial<SearchProfile> = remoteProfile) =>
+      evaluateFilters({ ...job, ...j } as FilterJobInput, profile(p), blocklist, working, {
+        scoped: false,
+      });
+
+    it('accepts a job found only by the Remote search if it is remote', () => {
+      expect(unscoped({ workMode: 'remote' }).pass).toBe(true);
+    });
+
+    it.each(['hybrid', 'onsite', 'unknown'] as const)(
+      'rejects a %s job found only by the Remote search',
+      (workMode) => {
+        expect(unscoped({ workMode }).reasons).toEqual(['not_remote']);
+      },
+    );
+
+    it('never rejects a job found by a search restricted to one of the profile places', () => {
+      expect(check({ workMode: 'onsite' }, remoteProfile).pass).toBe(true);
+      expect(
+        evaluateFilters(
+          { ...job, workMode: 'hybrid' },
+          profile(remoteProfile),
+          blocklist,
+          working,
+          { scoped: true },
+        ).pass,
+      ).toBe(true);
+    });
+
+    it('does not accept remote work for a profile that did not ask for Remote', () => {
+      expect(unscoped({ workMode: 'remote' }, { locations: ['London'] }).reasons).toEqual([
+        'not_remote',
+      ]);
+    });
+
+    it('is judged alongside the other rules', () => {
+      expect(unscoped({ workMode: 'remote', employmentType: 'temp' }).reasons).toEqual([
+        'employment_type:temp',
+      ]);
+    });
+  });
+
   it('reports every reason at once', () => {
     const r = check(
       { employmentType: 'temp', ir35: 'inside', workMode: 'onsite' },
@@ -242,6 +286,8 @@ describe('evaluateFilters', () => {
 
 describe('evaluateAcrossProfiles', () => {
   const { blocklist, working } = DEFAULT_SETTINGS;
+  const found = (...profiles: SearchProfile[]) =>
+    profiles.map((p) => ({ profile: p, foundBy: { scoped: true } }));
   const job: FilterJobInput = {
     title: 'Delivery Manager',
     employerName: 'Acme',
@@ -257,14 +303,25 @@ describe('evaluateAcrossProfiles', () => {
   it('passes when any profile that found the job accepts it', () => {
     const strict = profile({ id: 'strict', minDayRate: 600 });
     const lax = profile({ id: 'lax', minDayRate: 400 });
-    expect(evaluateAcrossProfiles(job, [strict, lax], blocklist, working).pass).toBe(true);
+    expect(evaluateAcrossProfiles(job, found(strict, lax), blocklist, working).pass).toBe(true);
   });
 
   it('when none accept, explains with the profile that came closest', () => {
     const one = profile({ id: 'one', minDayRate: 600 });
     const two = profile({ id: 'two', minDayRate: 600, excludeKeywords: ['delivery'] });
-    const r = evaluateAcrossProfiles(job, [two, one], blocklist, working);
+    const r = evaluateAcrossProfiles(job, found(two, one), blocklist, working);
     expect(r).toEqual({ pass: false, reasons: ['below_min_day_rate'] });
+  });
+
+  it('a place-restricted find by one profile rescues a job the Remote search found for another', () => {
+    const a = profile({ id: 'a', locations: ['London', 'Remote'] });
+    const b = profile({ id: 'b', locations: ['London'] });
+    const unscopedOnly = [{ profile: a, foundBy: { scoped: false } }];
+    expect(evaluateAcrossProfiles(job, unscopedOnly, blocklist, working).reasons).toEqual([
+      'not_remote',
+    ]);
+    const both = [...unscopedOnly, { profile: b, foundBy: { scoped: true } }];
+    expect(evaluateAcrossProfiles(job, both, blocklist, working).pass).toBe(true);
   });
 
   it('rejects a job found by no known profile', () => {

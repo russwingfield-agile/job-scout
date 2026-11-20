@@ -1,5 +1,6 @@
 import type { NormalisedJob, SearchProfile, Settings } from '@job-scout/shared';
 import { annualise } from './parse/pay.js';
+import { isRemoteLocation } from './queries.js';
 
 export type FilterResult = { pass: boolean; reasons: string[] };
 
@@ -29,18 +30,29 @@ export function containsWord(text: string, word: string): boolean {
 
 const CONTRACT_LIKE = new Set(['contract', 'temp']);
 
+/** How a profile came to find a job. `scoped`: a search restricted to one of the profile's places. */
+export type FoundBy = { scoped: boolean };
+
 /**
  * Hard filters for one profile (SPEC §7.1). Unknown values — no pay, unknown IR35, unknown work
- * mode, unknown employment type — always pass: we only reject on evidence.
+ * mode, unknown employment type — pass: we only reject on evidence. The one exception is a job
+ * found *only* by the location-free "Remote" search, which returns jobs from all over the country:
+ * it must itself be remote, so an unknown work mode does not pass.
  */
 export function evaluateFilters(
   job: FilterJob,
   profile: SearchProfile,
   blocklist: Blocklist,
   working: Working,
+  foundBy: FoundBy = { scoped: true },
 ): FilterResult {
   const reasons: string[] = [];
   const text = `${job.title}\n${job.descriptionText}`;
+
+  const acceptsRemote = profile.locations.some(isRemoteLocation);
+  if (!foundBy.scoped && !(acceptsRemote && job.workMode === 'remote')) {
+    reasons.push('not_remote');
+  }
 
   if (job.employmentType !== 'unknown' && !profile.employmentTypes.includes(job.employmentType)) {
     reasons.push(`employment_type:${job.employmentType}`);
@@ -95,12 +107,14 @@ export function evaluateFilters(
  */
 export function evaluateAcrossProfiles(
   job: FilterJob,
-  profiles: SearchProfile[],
+  finders: { profile: SearchProfile; foundBy: FoundBy }[],
   blocklist: Blocklist,
   working: Working,
 ): FilterResult {
-  if (profiles.length === 0) return { pass: false, reasons: ['no_matching_profile'] };
-  const results = profiles.map((p) => evaluateFilters(job, p, blocklist, working));
+  if (finders.length === 0) return { pass: false, reasons: ['no_matching_profile'] };
+  const results = finders.map((f) =>
+    evaluateFilters(job, f.profile, blocklist, working, f.foundBy),
+  );
   const passing = results.find((r) => r.pass);
   if (passing) return passing;
   return results.reduce((best, r) => (r.reasons.length < best.reasons.length ? r : best));

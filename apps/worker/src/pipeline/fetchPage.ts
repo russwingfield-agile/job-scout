@@ -82,6 +82,9 @@ export async function fetchPage(deps: PipelineDeps, msg: FetchMessage): Promise<
     [...rows.values()].map((r) => r.id),
     msg.profileIds,
     msg.runId,
+    // A search with no place (the "Remote" one) returns the whole country; mark its hits so the
+    // filters can require those jobs to be remote.
+    msg.query.location !== null,
   );
 
   // Jobs seen by an earlier run but never processed: close out the ones that have since aged out.

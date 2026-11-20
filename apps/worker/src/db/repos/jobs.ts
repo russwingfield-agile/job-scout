@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, isNull, or } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNull, or, sql } from 'drizzle-orm';
 import type { Db } from '../client.js';
 import { jobProfileHits, jobs } from '../schema.js';
 
@@ -102,22 +102,37 @@ export function jobsRepo(db: Db) {
       await db.update(jobs).set(patch).where(eq(jobs.id, id));
     },
 
-    /** Record that these profiles' searches found the job (all of them, not just the first). */
-    async addProfileHits(jobIds: string[], profileIds: string[], runId: string): Promise<void> {
+    /**
+     * Record that these profiles' searches found the job (all of them, not just the first).
+     * `scoped` says whether the search was restricted to one of the profile's places. If a job is
+     * found by both kinds of search it counts as scoped: a scoped hit is never downgraded.
+     */
+    async addProfileHits(
+      jobIds: string[],
+      profileIds: string[],
+      runId: string,
+      scoped: boolean,
+    ): Promise<void> {
       const rows = jobIds.flatMap((jobId) =>
-        profileIds.map((profileId) => ({ jobId, profileId, runId })),
+        profileIds.map((profileId) => ({ jobId, profileId, runId, scoped })),
       );
-      for (const batch of chunks(rows, 30)) {
-        await db.insert(jobProfileHits).values(batch).onConflictDoNothing();
+      for (const batch of chunks(rows, 25)) {
+        await db
+          .insert(jobProfileHits)
+          .values(batch)
+          .onConflictDoUpdate({
+            target: [jobProfileHits.jobId, jobProfileHits.profileId],
+            set: { scoped: sql`max(${jobProfileHits.scoped}, excluded.scoped)` },
+          });
       }
     },
 
-    async profileIdsFor(jobId: string): Promise<string[]> {
-      const rows = await db
-        .select({ profileId: jobProfileHits.profileId })
+    /** Which profiles found the job, and whether each did so through a place-restricted search. */
+    async profileHitsFor(jobId: string): Promise<{ profileId: string; scoped: boolean }[]> {
+      return db
+        .select({ profileId: jobProfileHits.profileId, scoped: jobProfileHits.scoped })
         .from(jobProfileHits)
         .where(eq(jobProfileHits.jobId, jobId));
-      return rows.map((r) => r.profileId);
     },
   };
 }

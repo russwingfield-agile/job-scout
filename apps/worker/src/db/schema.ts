@@ -212,6 +212,11 @@ export const jobProfileHits = sqliteTable(
     jobId: text('job_id').notNull(),
     profileId: text('profile_id').notNull(),
     runId: text('run_id'),
+    /**
+     * True when a search *restricted to one of the profile's places* found the job. False when only
+     * the location-free "Remote" search did, in which case the job must itself be remote.
+     */
+    scoped: integer('scoped', { mode: 'boolean' }).notNull().default(true),
   },
   (t) => [primaryKey({ columns: [t.jobId, t.profileId] })],
 );

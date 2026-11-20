@@ -1,0 +1,1 @@
+ALTER TABLE `job_profile_hits` ADD `scoped` integer DEFAULT true NOT NULL;

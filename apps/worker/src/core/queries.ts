@@ -9,7 +9,9 @@ export type PlannedQuery = {
   profileIds: string[];
 };
 
-const isRemote = (location: string): boolean => location.trim().toLowerCase() === 'remote';
+/** A profile location of "Remote" means a search with no place restriction. */
+export const isRemoteLocation = (location: string): boolean =>
+  location.trim().toLowerCase() === 'remote';
 
 /**
  * Expand search profiles into source queries: one per (job title × location). A "Remote" location
@@ -22,7 +24,7 @@ export function planQueries(profiles: SearchProfile[]): PlannedQuery[] {
   for (const profile of profiles) {
     for (const title of profile.jobTitles) {
       for (const rawLocation of profile.locations) {
-        const location = isRemote(rawLocation) ? null : rawLocation.trim();
+        const location = isRemoteLocation(rawLocation) ? null : rawLocation.trim();
         const types: EmploymentType[] = [...profile.employmentTypes].sort();
         const queryKey = JSON.stringify([
           title.trim().toLowerCase(),
