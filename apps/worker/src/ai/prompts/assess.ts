@@ -1,7 +1,7 @@
 import type { CvSummary, SearchProfile } from '@job-scout/shared';
 
 /** Bump on any change to the wording, rubric or output schema so stored assessments stay traceable. */
-export const ASSESS_PROMPT_VERSION = 'assess@1';
+export const ASSESS_PROMPT_VERSION = 'assess@2';
 
 const CHARS_PER_TOKEN = 4;
 
@@ -15,6 +15,7 @@ Score fit_score from 0 to 100 for the best-matching CV using this rubric:
 - 60-74: meets most essentials, with notable gaps or conflicts with the candidate's preferences
 - 40-59: partial fit
 - below 40: poor fit
+Location matters: if the job is not in or near one of the candidate's places and is not clearly remote, fit_score must be below 40 and red_flags must include "location mismatch", however good the skills match.
 Give every CV a score in cv_scores and set best_cv_id to the id of the highest. Use the CV ids exactly as given.
 
 Rules for the extracted fields:

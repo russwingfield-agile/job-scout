@@ -150,3 +150,9 @@ Verified with a real key (Basic auth, key as username, empty password). Recorded
 - **List ordering** is by final score when there is one, otherwise first-pass score (`coalesce`), then newest.
 - **Clean-up (`pipeline/cleanup.ts`).** After the last scheduled run of the local day (`isLastSlotOfDay`, so it follows the configured schedule rather than a hard-coded 17:00), filtered groups first seen more than `retention.filteredDays` ago are deleted with their postings, hits, similarities, assessment and vectors. A clean-up failure is recorded as a run error and never stops the run finishing. Too-old placeholder jobs (no group) are kept so they are never fetched again.
 - **Not done in M7:** the evaluation harness `scripts/eval-assess.ts` and its fixtures (needs real model calls and hand-labelled job/CV pairs; to do before trusting scores), and a rescore button in the UI (the endpoint exists; M8 adds the drawer). Neuron costs for 8B are still unverified (see neuronRates.ts).
+
+### M7 follow-up: first live results (2026-11-20)
+
+- **Problem:** the first scored Shortlist still showed Bristol/Birmingham/Cheltenham jobs. They were found before the location fix (existing hits default to "scoped"), and the AI gave "location mismatch" jobs scores of 87.
+- **"Clear all found jobs"** (`POST /api/groups/clear`, button on the Shortlist page, confirm dialog): deletes every group not acted on (filtered, below threshold, waiting, deferred, new), their postings, hits, similarities, assessments and vectors, plus placeholder jobs that never joined a group. Shortlisted/applied/skipped jobs are kept. Refused (409) while a run is working. The next run re-fetches and re-judges everything with the current filters.
+- **Prompt `assess@2`:** a job not in or near the candidate's places and not clearly remote must score below 40 and carry a "location mismatch" red flag.

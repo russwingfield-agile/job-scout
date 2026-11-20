@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ToastProvider } from '../src/components/ui/Toast.js';
 import { ShortlistPage } from '../src/features/inbox/ShortlistPage.js';
 import { describeFilterReason, postedAgo } from '../src/lib/jobFormat.js';
 
@@ -53,7 +54,9 @@ function renderPage() {
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
-      <ShortlistPage />
+      <ToastProvider>
+        <ShortlistPage />
+      </ToastProvider>
     </QueryClientProvider>,
   );
 }
@@ -293,5 +296,23 @@ describe('ShortlistPage', () => {
     renderPage();
     expect(await screen.findByText('Untitled role')).toBeInTheDocument();
     expect(screen.getAllByText('—').length).toBeGreaterThan(3);
+  });
+
+  it('clears all found jobs only after you confirm, then reloads the list', async () => {
+    const calls = mockApi((url) =>
+      url.includes('/groups/clear') ? json({ removed: 7 }) : json({ items: [], total: 0 }),
+    );
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValue(true);
+    const user = userEvent.setup();
+    renderPage();
+    const button = await screen.findByRole('button', { name: 'Clear all found jobs' });
+
+    await user.click(button);
+    expect(calls.some((c) => c.includes('/groups/clear'))).toBe(false); // declined
+
+    await user.click(button);
+    expect(await screen.findByText(/Cleared 7 jobs/)).toBeInTheDocument();
+    expect(calls.filter((c) => c.includes('/groups?show=shortlist')).length).toBeGreaterThan(1);
+    confirm.mockRestore();
   });
 });

@@ -197,7 +197,7 @@ describe('the assessment', () => {
       status: 'ok',
       fitScore: 80,
       bestCvId: 'cv1',
-      promptVersion: 'assess@1',
+      promptVersion: 'assess@2',
       model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
     });
     expect(stored?.resultJson?.headline).toBe('Strong SAFe coaching match');
@@ -466,3 +466,38 @@ async function countWhere(table: string, where: string): Promise<number> {
 
 const listGroups = (s: Setup) =>
   createApp(() => s.deps).fetch(new Request('http://localhost/api/groups'), devEnv);
+
+describe('POST /api/groups/clear', () => {
+  const clear = (s: Setup) =>
+    createApp(() => s.deps).fetch(
+      new Request('http://localhost/api/groups/clear', { method: 'POST' }),
+      devEnv,
+    );
+
+  it('forgets every job you have not acted on, keeps the ones you have, and lets the next run refill', async () => {
+    const s = await setup();
+    await runAll(s);
+    const [kept] = await repos.groups.listByStatus(['new']);
+    await repos.groups.setStatus(kept?.id as string, 'applied');
+    await repos.jobs.insertRefsIfNew([
+      { id: 'loose', source: 'reed', sourceJobId: '888', createdAt: '2026-11-19T00:00:00.000Z' },
+    ]);
+
+    const res = await clear(s);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ removed: 2 });
+    expect(await countWhere('job_groups', '1=1')).toBe(1);
+    expect(await countWhere('jobs', '1=1')).toBe(1);
+    expect(await repos.groups.getById(kept?.id as string)).toMatchObject({ status: 'applied' });
+    expect([...s.vectors.items.keys()].filter((k) => k.startsWith('job:'))).toHaveLength(1);
+
+    await runAll(s);
+    expect(await countWhere('job_groups', '1=1')).toBe(3); // the applied one is not duplicated
+  });
+
+  it('refuses while a run is working', async () => {
+    const s = await setup();
+    await startRun(s.deps, { trigger: 'manual' });
+    expect((await clear(s)).status).toBe(409);
+  });
+});

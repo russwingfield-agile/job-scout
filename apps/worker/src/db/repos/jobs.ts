@@ -82,6 +82,17 @@ export function jobsRepo(db: Db) {
       }
     },
 
+    /** Delete jobs that never joined a group (seen-only, too old, gone), with their hits. Returns their ids. */
+    async deleteUngrouped(): Promise<string[]> {
+      const rows = await db.select({ id: jobs.id }).from(jobs).where(isNull(jobs.groupId));
+      const ids = rows.map((r) => r.id);
+      for (const batch of chunks(ids, IN_CHUNK)) {
+        await db.delete(jobProfileHits).where(inArray(jobProfileHits.jobId, batch));
+        await db.delete(jobs).where(inArray(jobs.id, batch));
+      }
+      return ids;
+    },
+
     async getById(id: string): Promise<JobRow | undefined> {
       return db.select().from(jobs).where(eq(jobs.id, id)).get();
     },

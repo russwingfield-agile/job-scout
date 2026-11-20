@@ -1,8 +1,10 @@
 import type { GroupListItem, Ir35, WorkMode } from '@job-scout/shared';
 import { useState } from 'react';
-import { useGroups } from '../../api/queries.js';
+import { ApiError } from '../../api/client.js';
+import { useClearJobs, useGroups } from '../../api/queries.js';
 import { Badge } from '../../components/ui/Badge.js';
 import { Button } from '../../components/ui/Button.js';
+import { useToast } from '../../components/ui/Toast.js';
 import { describeFilterReason, postedAgo } from '../../lib/jobFormat.js';
 
 const IR35_LABEL: Record<Ir35, string> = {
@@ -89,6 +91,23 @@ function Row({ item, filtered }: { item: GroupListItem; filtered: boolean }) {
 export function ShortlistPage() {
   const [showFiltered, setShowFiltered] = useState(false);
   const groups = useGroups(showFiltered ? 'filtered' : 'shortlist');
+  const clear = useClearJobs();
+  const toast = useToast();
+
+  const clearAll = () => {
+    const sure = window.confirm(
+      'Forget every job found so far? The next scan finds and scores them again with your current CV, filters and settings. Jobs you have acted on are kept.',
+    );
+    if (!sure) return;
+    clear
+      .mutateAsync()
+      .then((r) =>
+        toast.push('success', `Cleared ${r.removed} jobs. Run a scan on the Runs page to refill.`),
+      )
+      .catch((err: unknown) =>
+        toast.push('error', err instanceof ApiError ? err.message : 'Could not clear jobs.'),
+      );
+  };
   const items = groups.data?.items ?? [];
 
   return (
@@ -100,6 +119,12 @@ export function ShortlistPage() {
           with ~ is a first-pass estimate from text similarity, for jobs the AI has not assessed
           yet. The full Inbox with Shortlist and Skip buttons is coming.
         </p>
+      </div>
+
+      <div>
+        <Button variant="danger" loading={clear.isPending} onClick={clearAll}>
+          Clear all found jobs
+        </Button>
       </div>
 
       <label className="flex items-center gap-2 text-sm">

@@ -1,4 +1,5 @@
 import {
+  type ClearJobsResponse,
   type GroupListItem,
   GroupListQuerySchema,
   type GroupListResponse,
@@ -10,6 +11,7 @@ import { formatPay } from '../../core/parse/pay.js';
 import type { AssessmentRow } from '../../db/repos/assessments.js';
 import { AppError } from '../../lib/errors.js';
 import { assessGroup } from '../../pipeline/assessGroup.js';
+import { clearFoundJobs } from '../../pipeline/cleanup.js';
 import type { AppEnv } from '../types.js';
 import { validate } from '../validate.js';
 
@@ -70,6 +72,18 @@ export const groupsRoute = new Hono<AppEnv>()
       },
     }));
     const body: GroupListResponse = { items, total };
+    return c.json(body);
+  })
+  /** Forget all jobs you have not acted on, so the next run starts fresh. 409 while a run is working. */
+  .post('/clear', async (c) => {
+    const deps = c.var.deps;
+    if (await deps.repos.runs.findActive()) {
+      throw new AppError(
+        'CONFLICT',
+        'A run is in progress. Wait for it to finish, then try again.',
+      );
+    }
+    const body: ClearJobsResponse = { removed: await clearFoundJobs(deps) };
     return c.json(body);
   })
   /** Assess this job again now (one AI call, counted against the daily AI budget). */

@@ -62,7 +62,7 @@ describe('buildAssessPrompt', () => {
     const b = buildAssessPrompt(base);
     expect(a).toEqual(b);
     expect(a.version).toBe(ASSESS_PROMPT_VERSION);
-    expect(ASSESS_PROMPT_VERSION).toBe('assess@1');
+    expect(ASSESS_PROMPT_VERSION).toBe('assess@2');
   });
 
   it('states the scoring rubric and the no-invention rule', () => {

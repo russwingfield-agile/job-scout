@@ -150,3 +150,7 @@ export const GroupListQuerySchema = z.object({
   show: z.enum(['shortlist', 'filtered']).default('shortlist'),
   limit: z.coerce.number().int().min(1).max(200).default(100),
 });
+
+/** POST /api/groups/clear: how many jobs were forgotten. */
+export const ClearJobsResponseSchema = z.object({ removed: z.number().int() });
+export type ClearJobsResponse = z.infer<typeof ClearJobsResponseSchema>;

@@ -1,4 +1,5 @@
 import {
+  ClearJobsResponseSchema,
   CvDetailSchema,
   CvListResponseSchema,
   CvMutationResponseSchema,
@@ -119,3 +120,12 @@ export const useGroups = (show: 'shortlist' | 'filtered') =>
     queryKey: ['groups', show] as const,
     queryFn: () => api(`/groups?show=${show}&limit=100`, GroupListResponseSchema),
   });
+
+/** Forget every job you have not acted on, so the next run finds them again from scratch. */
+export function useClearJobs() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api('/groups/clear', ClearJobsResponseSchema, { method: 'POST' }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['groups'] }),
+  });
+}
