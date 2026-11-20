@@ -58,9 +58,16 @@ The workflow's `production` environment can be given required reviewers if you w
 
 ### 4. Protect the site with Cloudflare Access
 
-1. Zero Trust → Access → Applications → Add application → Self-hosted. Application domain = the
-   `job-scout.<subdomain>.workers.dev` hostname. Policy: Allow, include your email only.
-2. Copy the application's **Audience (AUD) tag** and your **team domain** (`<team>.cloudflareaccess.com`).
+A `*.workers.dev` hostname cannot be added as a normal self-hosted Access application (it is not a zone in
+your account). Enable Access from the Worker itself:
+
+1. Workers & Pages → `job-scout` → Settings → Domains & Routes → the `workers.dev` row →
+   **Enable Cloudflare Access**. The policy allows Cloudflare account members (i.e. you). With "All traffic"
+   every URL, including `/api/health`, redirects to the Access sign-in page.
+2. Find the values the Worker needs. The team domain and AUD tag are visible (non-secret) in the sign-in
+   redirect: `curl -sI https://<host>/inbox` shows `Location: https://<team>.cloudflareaccess.com/...`, and the
+   `meta` JWT payload's `aud` is the application AUD tag. Or: Zero Trust → Access → Applications → the Worker's
+   application → Overview.
 3. Set Worker secrets:
 
 ```sh

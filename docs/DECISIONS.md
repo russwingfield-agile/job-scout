@@ -33,3 +33,9 @@ One entry per deviation from the plan/spec or verified external fact. Newest las
 - **UNVERIFIED:** Vectorize on the Free plan — Cloudflare's pricing page says paid-only while other pages list Free allowances. Confirm before M4. Also check whether 10 ms CPU per invocation is enough for queue consumers (M5); a paid plan may be required then.
 - **Fail-closed auth.** `/api/*` (except `/api/health`) requires a valid Cloudflare Access JWT; with Access unconfigured every such call is 401. `OWNER_EMAIL` optionally restricts to one identity.
 - **`pnpm run deploy`.** `pnpm deploy` is a pnpm built-in; the script must be invoked with `run`. CLAUDE.md's command list shows the short form.
+
+## Access on workers.dev (2026-11-20)
+
+- **Access is enabled from the Worker's Domains & Routes settings**, not as a self-hosted Access application (workers.dev is not a zone in the account). With "All traffic", `/api/health` is also behind Access; the Worker's own `/api/health` exemption only matters for local/dev or a future custom domain.
+- **Verified:** unauthenticated requests to `/`, `/inbox`, `/api/settings` and `/api/health` return 302 to `<team>.cloudflareaccess.com`; after sign-in the site and `/api/settings` work (confirmed by the owner). Worker secrets `ACCESS_AUD`, `ACCESS_TEAM_DOMAIN`, `OWNER_EMAIL` are set.
+- **API token** `job-scout-github-deploy` (Workers Scripts Edit, Account Settings Read, D1 Edit) is stored only as a GitHub Actions secret. Rotate it and update the secret before it expires.
