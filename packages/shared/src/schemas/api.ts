@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { EmploymentTypeSchema } from './enums.js';
+import {
+  EmploymentTypeSchema,
+  RunPhaseSchema,
+  RunStatusSchema,
+  RunTriggerSchema,
+} from './enums.js';
 import { SettingsPatchSchema, SettingsSchema } from './settings.js';
 
 /** Error envelope returned by every failing /api route (IMPLEMENTATION_PLAN §2.7). */
@@ -43,3 +48,42 @@ export type ReedProbeRequest = z.input<typeof ReedProbeRequestSchema>;
 export const GetSettingsResponseSchema = SettingsSchema;
 export const UpdateSettingsRequestSchema = SettingsPatchSchema;
 export const UpdateSettingsResponseSchema = SettingsSchema;
+
+/** One row of the Runs page. `counts` keys: fetched, new, filtered, dupes, prefiltered, llmScored, inboxAdded. */
+export const RunSummarySchema = z.object({
+  id: z.string(),
+  trigger: RunTriggerSchema,
+  status: RunStatusSchema,
+  phase: RunPhaseSchema,
+  startedAt: z.iso.datetime(),
+  finishedAt: z.iso.datetime().nullable(),
+  counts: z.record(z.string(), z.number()),
+  reedCalls: z.number().int(),
+  errorCount: z.number().int(),
+});
+export type RunSummary = z.infer<typeof RunSummarySchema>;
+
+export const RunErrorSchema = z.object({
+  id: z.number().int(),
+  stage: z.string().nullable(),
+  ref: z.string().nullable(),
+  message: z.string().nullable(),
+  createdAt: z.string().nullable(),
+});
+export type RunError = z.infer<typeof RunErrorSchema>;
+
+export const RunDetailSchema = RunSummarySchema.extend({
+  pendingIngest: z.number().int(),
+  pendingScore: z.number().int(),
+  errors: z.array(RunErrorSchema),
+});
+export type RunDetail = z.infer<typeof RunDetailSchema>;
+
+export const RunListResponseSchema = z.array(RunSummarySchema);
+
+export const StartRunResponseSchema = z.object({
+  runId: z.string(),
+  /** How many searches were queued (0 when no profile is active). */
+  queries: z.number().int(),
+});
+export type StartRunResponse = z.infer<typeof StartRunResponseSchema>;

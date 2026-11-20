@@ -194,6 +194,8 @@ export const jobs = sqliteTable(
     descriptionHtml: text('description_html'),
     applicationsCount: integer('applications_count'),
     filterReason: text('filter_reason'),
+    /** ref = seen in a search only; detailed = advert fetched and normalised; processed = fully handled. */
+    stage: text('stage').$type<'ref' | 'detailed' | 'processed'>().notNull().default('ref'),
     rawJson: text('raw_json'),
     createdAt: text('created_at').notNull(),
   },

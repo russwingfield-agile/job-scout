@@ -2,9 +2,12 @@ import {
   CvDetailSchema,
   CvListResponseSchema,
   CvMutationResponseSchema,
+  RunDetailSchema,
+  RunListResponseSchema,
   SearchProfileSchema,
   type Settings,
   SettingsSchema,
+  StartRunResponseSchema,
   type UpdateCvRequest,
   type UpdateSearchProfile,
 } from '@job-scout/shared';
@@ -16,6 +19,8 @@ export const keys = {
   cvs: ['cvs'] as const,
   cv: (id: string) => ['cv', id] as const,
   settings: ['settings'] as const,
+  runs: ['runs'] as const,
+  run: (id: string) => ['run', id] as const,
 };
 
 /** Only the part of Settings the CV screens need; the server returns more and zod ignores it. */
@@ -78,5 +83,32 @@ export function useUpdateProfile(profileId: string, cvId: string) {
         body: JSON.stringify(profile),
       }),
     onSuccess: () => invalidate(cvId),
+  });
+}
+
+/** Poll while anything is running so the page shows live progress, then stop. */
+const RUN_POLL_MS = 3_000;
+
+export const useRuns = () =>
+  useQuery({
+    queryKey: keys.runs,
+    queryFn: () => api('/runs', RunListResponseSchema),
+    refetchInterval: (query) =>
+      query.state.data?.some((r) => r.status === 'running') ? RUN_POLL_MS : false,
+  });
+
+export const useRun = (id: string | null) =>
+  useQuery({
+    queryKey: keys.run(id ?? ''),
+    queryFn: () => api(`/runs/${id}`, RunDetailSchema),
+    enabled: id !== null,
+    refetchInterval: (query) => (query.state.data?.status === 'running' ? RUN_POLL_MS : false),
+  });
+
+export function useStartRun() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api('/runs', StartRunResponseSchema, { method: 'POST' }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.runs }),
   });
 }

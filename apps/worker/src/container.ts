@@ -1,6 +1,7 @@
 import { accessVerifierFromEnv } from './adapters/access.js';
 import { systemClock } from './adapters/clock.js';
 import { D1VectorStore } from './adapters/d1Vectors.js';
+import { QueueBus, type QueueLike } from './adapters/queues.js';
 import { R2Blobs, type R2BucketLike } from './adapters/r2.js';
 import { ReedAdapter } from './adapters/reed/adapter.js';
 import { ReedClient } from './adapters/reed/client.js';
@@ -22,6 +23,7 @@ import type { Clock } from './ports/clock.js';
 import type { DocParser } from './ports/docparse.js';
 import type { Embedder } from './ports/embed.js';
 import type { LlmClient } from './ports/llm.js';
+import type { Bus } from './ports/queue.js';
 import type { SourceAdapter } from './ports/source.js';
 import type { VectorStore } from './ports/vector.js';
 
@@ -39,10 +41,16 @@ export type Deps = {
   embedder: Embedder;
   llm: LlmClient;
   vectors: VectorStore;
+  bus: Bus;
 };
 
 /** Bindings that only exist once the matching resource is created and enabled in wrangler.jsonc. */
-type OptionalBindings = { CVS?: R2BucketLike; VEC?: VectorizeLike };
+type OptionalBindings = {
+  CVS?: R2BucketLike;
+  VEC?: VectorizeLike;
+  FETCH_Q?: QueueLike;
+  PROCESS_Q?: QueueLike;
+};
 
 /**
  * DI root: the only place adapters are constructed. Tests pass `overrides` to inject fakes.
@@ -93,5 +101,11 @@ export function createContainer(env: Env, overrides: Partial<Deps> = {}): Deps {
     vectors:
       overrides.vectors ??
       (optional.VEC ? new VectorizeStore(optional.VEC) : new D1VectorStore(repos.vectors, clock)),
+    // Job queues: until FETCH_Q and PROCESS_Q are bound, starting a run fails with NOT_CONFIGURED.
+    bus:
+      overrides.bus ??
+      (optional.FETCH_Q && optional.PROCESS_Q
+        ? new QueueBus({ fetch: optional.FETCH_Q, process: optional.PROCESS_Q })
+        : unavailable<Bus>('Job queues')),
   };
 }

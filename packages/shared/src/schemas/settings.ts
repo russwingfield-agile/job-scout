@@ -7,8 +7,17 @@ const fraction = z.number().min(0).max(1);
 const nonNegInt = z.number().int().min(0);
 const posInt = z.number().int().min(1);
 
+const isValidTimeZone = (tz: string): boolean => {
+  try {
+    new Intl.DateTimeFormat('en-GB', { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 export const ScheduleSettingsSchema = z.object({
-  timezone: z.string().min(1),
+  timezone: z.string().min(1).refine(isValidTimeZone, 'Unknown time zone'),
   'mon-fri': slots,
   sat: slots,
   sun: slots,

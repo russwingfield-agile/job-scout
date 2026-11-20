@@ -35,7 +35,7 @@ export interface SourceAdapter {
     q: SearchQuery,
     page: number,
     ctx?: SourceCallContext,
-  ): Promise<{ refs: RawJobRef[]; total: number }>;
+  ): Promise<{ refs: RawJobRef[]; total: number; hasMore: boolean }>;
   details(sourceJobId: string, ctx?: SourceCallContext): Promise<RawJob>;
   normalise(raw: RawJob, ctx: NormaliseContext): NormalisedJob;
 }

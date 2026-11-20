@@ -1,0 +1,1 @@
+ALTER TABLE `jobs` ADD `stage` text DEFAULT 'ref' NOT NULL;

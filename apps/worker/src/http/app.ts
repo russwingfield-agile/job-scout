@@ -7,6 +7,7 @@ import { cvsRoute } from './routes/cvs.js';
 import { devRoute } from './routes/dev.js';
 import { healthRoute } from './routes/health.js';
 import { profilesRoute } from './routes/profiles.js';
+import { runsRoute } from './routes/runs.js';
 import { settingsRoute } from './routes/settings.js';
 import type { AppEnv } from './types.js';
 
@@ -28,6 +29,7 @@ export function createApp(makeDeps: (env: Env) => Deps = (env) => createContaine
     .route('/settings', settingsRoute)
     .route('/cvs', cvsRoute)
     .route('/profiles', profilesRoute)
+    .route('/runs', runsRoute)
     .route('/dev', devRoute);
 }
 

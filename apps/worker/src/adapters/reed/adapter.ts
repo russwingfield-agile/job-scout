@@ -15,7 +15,7 @@ import type {
   SourceCallContext,
 } from '../../ports/source.js';
 import type { ReedHttp } from './client.js';
-import { buildSearchParams } from './query.js';
+import { buildSearchParams, REED_PAGE_SIZE } from './query.js';
 
 const jobUrl = (r: { jobId: number; jobUrl?: string | null | undefined }): string =>
   r.jobUrl ?? `https://www.reed.co.uk/jobs/${r.jobId}`;
@@ -41,14 +41,18 @@ export class ReedAdapter implements SourceAdapter {
     q: SearchQuery,
     page: number,
     ctx?: SourceCallContext,
-  ): Promise<{ refs: RawJobRef[]; total: number }> {
+  ): Promise<{ refs: RawJobRef[]; total: number; hasMore: boolean }> {
     const res = await this.http.get(
       'search',
       buildSearchParams(q, page),
       ReedSearchResponseSchema,
       ctx,
     );
-    return { refs: res.results.map(toRef), total: res.totalResults };
+    return {
+      refs: res.results.map(toRef),
+      total: res.totalResults,
+      hasMore: (page + 1) * REED_PAGE_SIZE < res.totalResults,
+    };
   }
 
   async details(sourceJobId: string, ctx?: SourceCallContext): Promise<RawJob> {

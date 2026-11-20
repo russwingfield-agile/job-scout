@@ -98,7 +98,11 @@ describe('ReedAdapter.search', () => {
     const http = fakeReedHttp({
       search: { results: [], totalResults: 68, ambiguousLocations: [] },
     });
-    expect(await new ReedAdapter(http).search(query, 50)).toEqual({ refs: [], total: 68 });
+    expect(await new ReedAdapter(http).search(query, 50)).toEqual({
+      refs: [],
+      total: 68,
+      hasMore: false,
+    });
   });
 });
 

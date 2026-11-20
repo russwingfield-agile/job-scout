@@ -96,6 +96,18 @@ describe('applyPatch', () => {
     expect(result.ok).toBe(false);
   });
 
+  it('accepts real time zones and rejects unknown ones', () => {
+    expect(
+      applyPatch(DEFAULT_SETTINGS, {}, { schedule: { timezone: 'America/New_York' } }).ok,
+    ).toBe(true);
+    expect(
+      applyPatch(DEFAULT_SETTINGS, {}, { schedule: { timezone: 'Europe/Londn' } }),
+    ).toMatchObject({
+      ok: false,
+      issues: [{ path: 'schedule.timezone', message: 'Unknown time zone' }],
+    });
+  });
+
   it('rejects malformed schedule slots', () => {
     expect(applyPatch(DEFAULT_SETTINGS, {}, { schedule: { sat: ['7am'] } }).ok).toBe(false);
     expect(applyPatch(DEFAULT_SETTINGS, {}, { schedule: { sat: ['25:00'] } }).ok).toBe(false);

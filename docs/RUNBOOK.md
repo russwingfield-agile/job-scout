@@ -114,3 +114,16 @@ If the Deploy workflow then fails with an authentication error, add **Workers R2
 `CLOUDFLARE_API_TOKEN` (Cloudflare → My Profile → API Tokens → edit the token). R2 needs a payment method on file.
 
 CV and job fingerprints (embeddings) are stored in D1 — **no Vectorize index is needed** (see DECISIONS.md).
+
+## Enabling the job pipeline (queues + Reed key)
+
+"Run now" and the scheduled scans need two queues and the Reed key on the live site. All of it is dashboard clicks:
+
+1. **Queues** (Cloudflare → Workers & Pages → Queues → Create queue; leave jurisdiction at the default, which cannot be
+   changed later): create `fetch-q`, `process-q` and `job-scout-dlq` (the dead-letter queue for failed messages).
+2. **Token permission:** My Profile → API Tokens → edit `job-scout-github-deploy` → add **Account → Queues → Edit**.
+3. **Reed key:** Workers & Pages → `job-scout` → Settings → Variables and Secrets → Add → type **Secret**, name
+   `REED_API_KEY`, paste the key → Deploy.
+4. Uncomment the `queues` block in `apps/worker/wrangler.jsonc` and push.
+
+Until then, "Run now" shows "Job queues is not configured" and scheduled slots record a failed run saying the same.

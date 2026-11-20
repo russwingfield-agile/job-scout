@@ -15,6 +15,13 @@
       "when": 1795171944438,
       "tag": "0001_opposite_nicolaos",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1795175120496,
+      "tag": "0002_high_magma",
+      "breakpoints": true
     }
   ]
 }
