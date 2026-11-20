@@ -158,6 +158,19 @@ describe('normaliseReedJob', () => {
     expect(NormalisedJobSchema.safeParse(job).success).toBe(true);
   });
 
+  it.each([
+    ['£640 - £850', 'per day', '£640 - £850 per day'],
+    ['£640.00 - £850.00 per day', 'per day', '£640.00 - £850.00 per day'],
+    ['£640.00 - £850.00 PER DAY', 'per day', '£640.00 - £850.00 PER DAY'],
+    [null, 'per day', 'per day'],
+    ['Competitive', null, 'Competitive'],
+    ['Competitive', '', 'Competitive'],
+    [null, null, undefined],
+  ])('builds salary text from salary=%j + salaryType=%j', (salary, salaryType, expected) => {
+    const job = normalise({ jobId: 9, jobTitle: 'x', salary, salaryType });
+    expect(job.salaryText).toBe(expected);
+  });
+
   it('omits applicationsCount when Reed sends explicit nulls', () => {
     const job = normalise({ ...permCompetitive, applicationCount: null, applications: null });
     expect(job).not.toHaveProperty('applicationsCount');

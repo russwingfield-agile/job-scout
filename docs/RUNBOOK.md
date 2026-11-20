@@ -91,3 +91,16 @@ while the signed-in browser session works.
 
 TODO: R2 bucket, Vectorize index + metadata indexes (`kind` string, `posted_ts` number), queues + DLQ,
 secrets rotation, inspecting the DLQ, replaying a run, tuning thresholds.
+
+## Trying the Reed probe locally (dev only)
+
+With `REED_API_KEY` in `apps/worker/.dev.vars` and the dev server running, a real search plus the first few
+adverts, normalised:
+
+```sh
+curl -X POST http://localhost:5173/api/dev/reed-probe -H "Content-Type: application/json" \
+  -d '{"keywords":"agile coach","location":"London","employmentTypes":["contract"],"detailsCount":3}'
+```
+
+The route returns 404 unless `ENV=dev`. Every call counts against the daily Reed budget. To record a new fixture:
+`node scripts/record-reed-fixture.mjs details <name> <jobId>` (or `search <name> key=value ...`).

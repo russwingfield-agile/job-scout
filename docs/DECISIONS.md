@@ -57,3 +57,21 @@ One entry per deviation from the plan/spec or verified external fact. Newest las
 - **Titles:** "Lead" counts as seniority only as the first word, so "Delivery Lead" keeps its role word. `tokenSetRatio` follows the fuzzywuzzy method (subset ⇒ 1.0); the dedupe step (M6) also requires cosine ≥ 0.92.
 - **Coverage gate.** `pnpm test:coverage` (part of `pnpm check`) enforces 100% on `core/parse/**` and ≥ 90% elsewhere in `core/`, measured on the `worker-unit` project (the Workers pool does not support v8 coverage). Coverage config must live in the root `vitest.config.ts`.
 - **Parser constants.** The magnitude thresholds (10,000 / 2,000 / 100 / 1,000) are named constants in `pay.ts`, not settings: they define how a number is read, not how a job is ranked.
+
+## M3 — Reed API, verified against the live API (2026-11-20)
+
+Verified with a real key (Basic auth, key as username, empty password). Recorded responses are in `apps/worker/test/fixtures/reed/real/` (recorded with `scripts/record-reed-fixture.mjs`; no key or contact details in them). The earlier synthetic fixtures in `fixtures/reed/*.json` are kept for parser edge cases.
+
+- **Confirmed M2 assumptions:** dates are day-first `dd/MM/yyyy`; `jobs/{id}` has `salary` ("£640.00 - £850.00 per day"), `salaryType` ("per day" / "per annum"), `datePosted`, `contractType` ("Contract" / "Permanent"), `externalUrl`, `fullTime`/`partTime`, and `yearlyMinimumSalary`/`yearlyMaximumSalary` (Reed annualises days × 260).
+- **Search shape:** `{ results[], ambiguousLocations[], totalResults }`; each result has `jobId, employerId, employerName, jobTitle, locationName, minimumSalary, maximumSalary, currency, expirationDate, date, jobDescription (truncated snippet ending "..."), applications, jobUrl`. Full HTML is only on `jobs/{id}`.
+- **Unknown job id returns HTTP 200 with a blank record** (`jobId: 0`, all other fields null), not a 404. `ReedAdapter.details` converts this to a non-retryable `NOT_FOUND`.
+- **Nulls:** text fields can be `null`; the shared schemas read them as `''`.
+- **Bad key → HTTP 401** with an empty body (non-retryable). No rate-limit headers were observed; limits remain undocumented, so the daily budget (default 900) and per-run cap (60) stay as the safeguard.
+- **Paging:** `resultsToTake` is capped at 100 (101 returns 100); `resultsToSkip` past the end returns an empty page with the real `totalResults`. A broad query ("project manager", London) has ~2,600 hits, so `maxPagesPerQuery` (3) means only the newest ~300 are seen.
+- **Filters:** `contract`, `permanent`, `temp` OR together; none sent means all types; `contract=false` is ignored (so only `true` flags are sent, and all three = none). `distanceFromLocation` changes the result set materially (default is narrower than 25 miles).
+- **`minimumSalary`/`maximumSalary` units are not stated** (a contract can carry 640–850 as day rates or 50,000 as an annual figure). Pay is parsed from the `salary` text first; the numbers are only a fallback, and `minimumSalary` is sent as a search filter for permanent-only queries.
+- **`applicationCount` on `jobs/{id}` was 0** where the search result showed 21–83 `applications`; treat the details value as unreliable. (Not fixed: low value, and normalisation has no access to the search hit.)
+- **Parser fix found by real data:** `salary` already contains the period, so `salaryType` is appended only when the text does not already include it (previously produced "per day per day").
+- **Decisions:** `SourceAdapter` takes an optional `{ runId }` so call records can be attributed to a run; `ReedClient` reports every request, including failures and timeouts, to a recorder that writes `source_calls` and increments `usage_daily.reed_calls`; recorder failures never fail the request. Network errors, timeouts, 429 and 5xx are retryable; 401/403, other 4xx and unexpected response shapes are not.
+- **Recorder script is `.mjs`**, not `.ts` as the plan says, so it runs with plain Node and needs no type-checking setup.
+- **Deployment:** the deployed Worker has no `REED_API_KEY` yet. Set it before M5 with `wrangler secret put REED_API_KEY --config apps/worker/wrangler.jsonc`.

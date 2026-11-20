@@ -20,8 +20,12 @@ const AGENCY_NAME =
 
 const READ_ONLY_TEXT_CHARS = 2_000;
 
+/** Reed's `salary` text, with `salaryType` ("per day") appended only if the text lacks it. */
 function salaryTextOf(raw: ReedJobDetails): string {
-  return [raw.salary, raw.salaryType].filter(Boolean).join(' ');
+  const salary = raw.salary ?? '';
+  const type = raw.salaryType ?? '';
+  const alreadyStated = salary.toLowerCase().includes(type.toLowerCase());
+  return type && !alreadyStated ? `${salary} ${type}`.trim() : salary;
 }
 
 /** Reed job details → the source-agnostic shape everything downstream uses (SPEC §4.4). */

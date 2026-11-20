@@ -7,6 +7,7 @@ import { jobsRepo } from './jobs.js';
 import { profilesRepo } from './profiles.js';
 import { runsRepo } from './runs.js';
 import { settingsRepo } from './settings.js';
+import { sourceCallsRepo } from './sourceCalls.js';
 import { usageRepo } from './usage.js';
 
 export function createRepos(db: Db) {
@@ -20,6 +21,7 @@ export function createRepos(db: Db) {
     assessments: assessmentsRepo(db),
     applications: applicationsRepo(db),
     usage: usageRepo(db),
+    sourceCalls: sourceCallsRepo(db),
   };
 }
 

@@ -2,18 +2,24 @@ import { z } from 'zod';
 
 const nullableNumber = z.number().nullish();
 const nullableString = z.string().nullish();
+/** Reed sends `null` for missing text (and blank records for unknown ids); read both as ''. */
+const text = z
+  .string()
+  .nullish()
+  .transform((v) => v ?? '');
 
 /**
- * Reed `jobs/{id}` response. Loose on purpose: unknown fields pass through and nearly everything is
- * optional, so an API change degrades parsing instead of breaking ingest. Field names follow
- * SPEC §4.1 and are verified against real responses in M3 (see docs/DECISIONS.md).
+ * Reed `jobs/{id}` response, verified against the live API on 2026-11-20 (see docs/DECISIONS.md).
+ * Loose on purpose: unknown fields pass through and nearly everything is optional, so an API change
+ * degrades parsing instead of breaking ingest. Reed answers HTTP 200 with a blank record
+ * (`jobId: 0`, null fields) for an unknown id — callers must check `jobId`.
  */
 export const ReedJobDetailsSchema = z.looseObject({
   jobId: z.number(),
   employerId: nullableNumber,
-  employerName: z.string().default(''),
-  jobTitle: z.string().default(''),
-  locationName: z.string().default(''),
+  employerName: text,
+  jobTitle: text,
+  locationName: text,
   minimumSalary: nullableNumber,
   maximumSalary: nullableNumber,
   yearlyMinimumSalary: nullableNumber,
@@ -24,7 +30,7 @@ export const ReedJobDetailsSchema = z.looseObject({
   expirationDate: nullableString,
   date: nullableString,
   datePosted: nullableString,
-  jobDescription: z.string().default(''),
+  jobDescription: text,
   applicationCount: nullableNumber,
   applications: nullableNumber,
   jobUrl: nullableString,
@@ -35,3 +41,28 @@ export const ReedJobDetailsSchema = z.looseObject({
   partTime: z.boolean().nullish(),
 });
 export type ReedJobDetails = z.infer<typeof ReedJobDetailsSchema>;
+
+/** One entry of `search` results (a snippet; the full advert needs `jobs/{id}`). */
+export const ReedSearchResultSchema = z.looseObject({
+  jobId: z.number(),
+  employerId: nullableNumber,
+  employerName: text,
+  jobTitle: text,
+  locationName: text,
+  minimumSalary: nullableNumber,
+  maximumSalary: nullableNumber,
+  currency: nullableString,
+  expirationDate: nullableString,
+  date: nullableString,
+  jobDescription: text,
+  applications: nullableNumber,
+  jobUrl: nullableString,
+});
+export type ReedSearchResult = z.infer<typeof ReedSearchResultSchema>;
+
+export const ReedSearchResponseSchema = z.looseObject({
+  results: z.array(ReedSearchResultSchema),
+  totalResults: z.number(),
+  ambiguousLocations: z.array(z.unknown()).default([]),
+});
+export type ReedSearchResponse = z.infer<typeof ReedSearchResponseSchema>;
