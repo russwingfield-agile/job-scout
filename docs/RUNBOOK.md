@@ -104,3 +104,19 @@ curl -X POST http://localhost:5173/api/dev/reed-probe -H "Content-Type: applicat
 
 The route returns 404 unless `ENV=dev`. Every call counts against the daily Reed budget. To record a new fixture:
 `node scripts/record-reed-fixture.mjs details <name> <jobId>` (or `search <name> key=value ...`).
+
+## Enabling CV storage and search (R2 + Vectorize)
+
+The CV endpoints return 503 `NOT_CONFIGURED` until both resources exist and their bindings are enabled.
+
+```sh
+wrangler r2 bucket create job-scout-cvs
+wrangler vectorize create job-scout-vectors --dimensions=768 --metric=cosine
+wrangler vectorize create-metadata-index job-scout-vectors --property-name=kind --type=string
+wrangler vectorize create-metadata-index job-scout-vectors --property-name=posted_ts --type=number
+```
+
+Then uncomment the `r2_buckets` and `vectorize` blocks in `apps/worker/wrangler.jsonc`, run `pnpm cf:types`,
+add **R2 → Edit** and **Vectorize → Edit** to the `CLOUDFLARE_API_TOKEN` used by the deploy workflow, and push.
+R2 may require a payment method on file even within the free allowance, and Cloudflare's docs are unclear whether
+Vectorize is available on the Workers Free plan — see DECISIONS.md.

@@ -3,8 +3,10 @@ import { createContainer, type Deps } from '../container.js';
 import { auth } from './middleware/auth.js';
 import { onError, onNotFound } from './middleware/errors.js';
 import { requestId } from './middleware/requestId.js';
+import { cvsRoute } from './routes/cvs.js';
 import { devRoute } from './routes/dev.js';
 import { healthRoute } from './routes/health.js';
+import { profilesRoute } from './routes/profiles.js';
 import { settingsRoute } from './routes/settings.js';
 import type { AppEnv } from './types.js';
 
@@ -24,6 +26,8 @@ export function createApp(makeDeps: (env: Env) => Deps = (env) => createContaine
   return api
     .route('/health', healthRoute)
     .route('/settings', settingsRoute)
+    .route('/cvs', cvsRoute)
+    .route('/profiles', profilesRoute)
     .route('/dev', devRoute);
 }
 

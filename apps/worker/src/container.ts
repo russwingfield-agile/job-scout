@@ -1,15 +1,28 @@
 import { accessVerifierFromEnv } from './adapters/access.js';
 import { systemClock } from './adapters/clock.js';
+import { R2Blobs, type R2BucketLike } from './adapters/r2.js';
 import { ReedAdapter } from './adapters/reed/adapter.js';
 import { ReedClient } from './adapters/reed/client.js';
 import { createSourceCallRecorder } from './adapters/sourceCallRecorder.js';
+import { unavailable } from './adapters/unavailable.js';
+import { type VectorizeLike, VectorizeStore } from './adapters/vectorize.js';
+import type { AiLike } from './adapters/workersai/binding.js';
+import { WorkersAiEmbedder } from './adapters/workersai/embed.js';
+import { WorkersAiLlm } from './adapters/workersai/llm.js';
+import { WorkersAiDocParser } from './adapters/workersai/toMarkdown.js';
+import { DEFAULT_SETTINGS } from './config/defaults.js';
 import { createSettingsService, type SettingsService } from './config/settings.js';
 import { createDb, type Db } from './db/client.js';
 import { createRepos, type Repos } from './db/repos/index.js';
 import { createLogger, type Logger } from './lib/log.js';
 import type { AccessVerifier } from './ports/access.js';
+import type { BlobStore } from './ports/blob.js';
 import type { Clock } from './ports/clock.js';
+import type { DocParser } from './ports/docparse.js';
+import type { Embedder } from './ports/embed.js';
+import type { LlmClient } from './ports/llm.js';
 import type { SourceAdapter } from './ports/source.js';
+import type { VectorStore } from './ports/vector.js';
 
 export type Deps = {
   db: Db;
@@ -20,11 +33,20 @@ export type Deps = {
   /** Null when Cloudflare Access is not configured (the API then rejects all non-public calls). */
   access: AccessVerifier | null;
   source: SourceAdapter;
+  blobs: BlobStore;
+  docs: DocParser;
+  embedder: Embedder;
+  llm: LlmClient;
+  vectors: VectorStore;
 };
 
+/** Bindings that only exist once the matching resource is created and enabled in wrangler.jsonc. */
+type OptionalBindings = { CVS?: R2BucketLike; VEC?: VectorizeLike };
+
 /**
- * DI root: the only place adapters are constructed. Later milestones add vectors, embedder, llm,
- * docs, blobs and bus here. Tests pass `overrides` to inject fakes.
+ * DI root: the only place adapters are constructed. Tests pass `overrides` to inject fakes.
+ * R2 and Vectorize are optional bindings: until they are configured, those ports fail with a clear
+ * NOT_CONFIGURED error (HTTP 503) instead of the whole Worker failing to start.
  */
 export function createContainer(env: Env, overrides: Partial<Deps> = {}): Deps {
   const db = overrides.db ?? createDb(env.DB);
@@ -44,5 +66,29 @@ export function createContainer(env: Env, overrides: Partial<Deps> = {}): Deps {
         log,
       }),
     );
-  return { db, repos, clock, log, settings, access, source };
+
+  const optional = env as unknown as OptionalBindings;
+  const ai = env.AI as unknown as AiLike;
+  // The embedding model is fixed at construction: changing it invalidates every stored vector, so
+  // it is deliberately not hot-swappable through Settings.
+  const { embedding, embeddingDims } = DEFAULT_SETTINGS.models;
+
+  return {
+    db,
+    repos,
+    clock,
+    log,
+    settings,
+    access,
+    source,
+    blobs:
+      overrides.blobs ??
+      (optional.CVS ? new R2Blobs(optional.CVS) : unavailable<BlobStore>('CV storage (R2)')),
+    docs: overrides.docs ?? new WorkersAiDocParser(ai),
+    embedder: overrides.embedder ?? new WorkersAiEmbedder(ai, embedding, embeddingDims),
+    llm: overrides.llm ?? new WorkersAiLlm(ai),
+    vectors:
+      overrides.vectors ??
+      (optional.VEC ? new VectorizeStore(optional.VEC) : unavailable<VectorStore>('Vectorize')),
+  };
 }

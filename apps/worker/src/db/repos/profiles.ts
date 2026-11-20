@@ -55,6 +55,15 @@ export function profilesRepo(db: Db) {
       return row ? toProfile(row) : undefined;
     },
 
+    async list(): Promise<SearchProfile[]> {
+      const rows = await db.select().from(searchProfiles);
+      return rows.map(toProfile);
+    },
+
+    async deleteByCvId(cvId: string): Promise<void> {
+      await db.delete(searchProfiles).where(eq(searchProfiles.cvId, cvId));
+    },
+
     async listActive(): Promise<SearchProfile[]> {
       const rows = await db.select().from(searchProfiles).where(eq(searchProfiles.active, true));
       return rows.map(toProfile);

@@ -12,6 +12,7 @@ export const ApiErrorCodeSchema = z.enum([
   'BUDGET_EXHAUSTED',
   'LLM_INVALID_OUTPUT',
   'CONFLICT',
+  'NOT_CONFIGURED',
   'INTERNAL',
 ]);
 export type ApiErrorCode = z.infer<typeof ApiErrorCodeSchema>;

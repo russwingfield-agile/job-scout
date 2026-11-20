@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router';
 import { Shell } from './components/Shell.js';
+import { CvsPage } from './features/cvs/CvsPage.js';
 import { Placeholder } from './features/Placeholder.js';
 
 export const NAV_ITEMS = [
@@ -15,7 +16,8 @@ export function AppRoutes() {
     <Routes>
       <Route element={<Shell />}>
         <Route index element={<Navigate to="/inbox" replace />} />
-        {NAV_ITEMS.map((item) => (
+        <Route path="/cvs" element={<CvsPage />} />
+        {NAV_ITEMS.filter((item) => item.to !== '/cvs').map((item) => (
           <Route key={item.to} path={item.to} element={<Placeholder title={item.label} />} />
         ))}
         <Route path="*" element={<Placeholder title="Not found" />} />

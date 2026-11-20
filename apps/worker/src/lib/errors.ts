@@ -11,6 +11,7 @@ const DEFAULT_STATUS: Record<ApiErrorCode, number> = {
   BUDGET_EXHAUSTED: 429,
   LLM_INVALID_OUTPUT: 502,
   CONFLICT: 409,
+  NOT_CONFIGURED: 503,
   INTERNAL: 500,
 };
 
@@ -23,6 +24,7 @@ const DEFAULT_RETRYABLE: Record<ApiErrorCode, boolean> = {
   BUDGET_EXHAUSTED: false,
   LLM_INVALID_OUTPUT: false,
   CONFLICT: false,
+  NOT_CONFIGURED: false,
   INTERNAL: false,
 };
 
