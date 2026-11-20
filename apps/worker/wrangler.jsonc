@@ -30,19 +30,32 @@
 
   // Not enabled yet — M4 (Vectorize, optional): "vectorize": [{ "binding": "VEC", "index_name": "job-scout-vectors", "remote": true }],
   //
-  // M5 — ingest pipeline. NOT enabled yet: create the queues first (docs/RUNBOOK.md), then uncomment.
-  // One message per invocation (max_batch_size 1) because Workers Free allows only 10 ms CPU per
-  // invocation. max_retries must equal QUEUE_MAX_RETRIES in src/pipeline/messages.ts.
-  //   "queues": {
-  //     "producers": [
-  //       { "binding": "FETCH_Q", "queue": "fetch-q" },
-  //       { "binding": "PROCESS_Q", "queue": "process-q" }
-  //     ],
-  //     "consumers": [
-  //       { "queue": "fetch-q", "max_batch_size": 1, "max_concurrency": 2, "max_retries": 3, "dead_letter_queue": "job-scout-dlq" },
-  //       { "queue": "process-q", "max_batch_size": 1, "max_concurrency": 5, "max_retries": 3, "dead_letter_queue": "job-scout-dlq" }
-  //     ]
-  //   },
+  // Job pipeline queues (M5). One message per invocation (max_batch_size 1) because Workers Free
+  // allows only 10 ms CPU per invocation. max_retries must equal QUEUE_MAX_RETRIES in
+  // src/pipeline/messages.ts. Queues are created in the dashboard (docs/RUNBOOK.md).
+  "queues": {
+    "producers": [
+      { "binding": "FETCH_Q", "queue": "fetch-q" },
+      { "binding": "PROCESS_Q", "queue": "process-q" }
+    ],
+    "consumers": [
+      {
+        "queue": "fetch-q",
+        "max_batch_size": 1,
+        "max_concurrency": 2,
+        "max_retries": 3,
+        "dead_letter_queue": "job-scout-dlq"
+      },
+      {
+        "queue": "process-q",
+        "max_batch_size": 1,
+        "max_concurrency": 5,
+        "max_retries": 3,
+        "dead_letter_queue": "job-scout-dlq"
+      }
+    ]
+  },
+
   // ACCESS_* identify the Cloudflare Access application protecting this site. They are public
   // identifiers (visible in the sign-in redirect), not secrets. If the Access application is ever
   // re-created, copy its new Audience tag here. See docs/RUNBOOK.md.
