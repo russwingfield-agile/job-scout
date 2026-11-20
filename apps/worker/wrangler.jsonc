@@ -43,5 +43,14 @@
   //       { "queue": "score-q", "max_batch_size": 3, "max_concurrency": 2, "max_retries": 3, "dead_letter_queue": "job-scout-dlq" }
   //     ]
   //   },
-  "vars": { "TZ_NAME": "Europe/London", "DEV_BYPASS_AUTH": "false", "ENV": "production" }
+  // ACCESS_* identify the Cloudflare Access application protecting this site. They are public
+  // identifiers (visible in the sign-in redirect), not secrets. If the Access application is ever
+  // re-created, copy its new Audience tag here. See docs/RUNBOOK.md.
+  "vars": {
+    "TZ_NAME": "Europe/London",
+    "DEV_BYPASS_AUTH": "false",
+    "ENV": "production",
+    "ACCESS_TEAM_DOMAIN": "still-dew-77a8.cloudflareaccess.com",
+    "ACCESS_AUD": "a5bd412c26647ffa714852957fc413b9833a6e96968810d278609e2512a35b87"
+  }
 }

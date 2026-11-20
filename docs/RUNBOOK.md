@@ -68,13 +68,10 @@ your account). Enable Access from the Worker itself:
    redirect: `curl -sI https://<host>/inbox` shows `Location: https://<team>.cloudflareaccess.com/...`, and the
    `meta` JWT payload's `aud` is the application AUD tag. Or: Zero Trust → Access → Applications → the Worker's
    application → Overview.
-3. Set Worker secrets:
-
-```sh
-wrangler secret put ACCESS_AUD --config apps/worker/wrangler.jsonc
-wrangler secret put ACCESS_TEAM_DOMAIN --config apps/worker/wrangler.jsonc
-wrangler secret put OWNER_EMAIL --config apps/worker/wrangler.jsonc
-```
+3. The team domain and AUD tag are **not secrets**: they live in `apps/worker/wrangler.jsonc` under `vars`
+   (`ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`). If the Access application is ever re-created, copy its new Audience tag there and push.
+   Optionally restrict to one identity with a Worker secret `OWNER_EMAIL` (Workers & Pages → job-scout → Settings →
+   Variables and Secrets → Add → Secret); without it, any valid sign-in to this Access application is accepted.
 
 Verify: an unauthenticated `curl https://<host>/api/settings` is blocked by Access (or 401 from the Worker),
 while the signed-in browser session works.
