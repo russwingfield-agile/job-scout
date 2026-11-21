@@ -11,6 +11,7 @@ import { profilesRoute } from './routes/profiles.js';
 import { runsRoute } from './routes/runs.js';
 import { settingsRoute } from './routes/settings.js';
 import { statsRoute } from './routes/stats.js';
+import { suggestionsRoute } from './routes/suggestions.js';
 import type { AppEnv } from './types.js';
 
 /** `makeDeps` lets tests inject fakes; production builds the container from the Worker env. */
@@ -33,6 +34,7 @@ export function createApp(makeDeps: (env: Env) => Deps = (env) => createContaine
     .route('/profiles', profilesRoute)
     .route('/groups', groupsRoute)
     .route('/stats', statsRoute)
+    .route('/suggestions', suggestionsRoute)
     .route('/runs', runsRoute)
     .route('/dev', devRoute);
 }

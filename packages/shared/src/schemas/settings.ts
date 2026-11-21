@@ -105,6 +105,14 @@ export const AssessmentSettingsSchema = z.object({
   fullTextCvCount: posInt,
 });
 
+export const CoverNoteSettingsSchema = z.object({
+  /** Word limit for a cover note and for a short recruiter message (SPEC §9.2). */
+  noteWords: posInt,
+  messageWords: posInt,
+  maxJobTokens: posInt,
+  maxCvTokens: posInt,
+});
+
 export const BlocklistSettingsSchema = z.object({
   employers: z.array(z.string().trim().min(1)).max(500),
   agencies: z.array(z.string().trim().min(1)).max(500),
@@ -146,6 +154,7 @@ export const SettingsSchema = z.object({
   dedupe: DedupeSettingsSchema,
   feedback: FeedbackSettingsSchema,
   assessment: AssessmentSettingsSchema,
+  coverNotes: CoverNoteSettingsSchema,
   blocklist: BlocklistSettingsSchema,
   working: WorkingSettingsSchema,
   retention: RetentionSettingsSchema,
@@ -170,6 +179,7 @@ export const SettingsPatchSchema = z.object({
   dedupe: DedupeSettingsSchema.partial().optional(),
   feedback: FeedbackSettingsSchema.partial().optional(),
   assessment: AssessmentSettingsSchema.partial().optional(),
+  coverNotes: CoverNoteSettingsSchema.partial().optional(),
   blocklist: BlocklistSettingsSchema.partial().optional(),
   working: WorkingSettingsSchema.partial().optional(),
   retention: RetentionSettingsSchema.partial().optional(),

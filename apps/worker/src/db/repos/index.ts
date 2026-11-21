@@ -1,6 +1,7 @@
 import type { Db } from '../client.js';
 import { applicationsRepo } from './applications.js';
 import { assessmentsRepo } from './assessments.js';
+import { coverNotesRepo } from './coverNotes.js';
 import { cvsRepo } from './cvs.js';
 import { groupsRepo } from './groups.js';
 import { jobsRepo } from './jobs.js';
@@ -21,6 +22,7 @@ export function createRepos(db: Db) {
     profiles: profilesRepo(db),
     assessments: assessmentsRepo(db),
     applications: applicationsRepo(db),
+    coverNotes: coverNotesRepo(db),
     usage: usageRepo(db),
     sourceCalls: sourceCallsRepo(db),
     vectors: vectorsRepo(db),

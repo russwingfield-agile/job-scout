@@ -79,6 +79,7 @@ export const DEFAULT_SETTINGS: Settings = {
     maxCvTokens: 2000,
     fullTextCvCount: 2,
   },
+  coverNotes: { noteWords: 200, messageWords: 90, maxJobTokens: 3000, maxCvTokens: 3000 },
   blocklist: { employers: [], agencies: [], keywords: [] },
   working: { workingDaysPerYear: 220, hoursPerDay: 8 },
   retention: { filteredDays: 30 },

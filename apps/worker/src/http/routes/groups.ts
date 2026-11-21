@@ -1,5 +1,6 @@
 import {
   type ClearJobsResponse,
+  CoverNoteRequestSchema,
   type GroupDetail,
   type GroupListItem,
   GroupListQuerySchema,
@@ -10,6 +11,7 @@ import {
   UpdateNotesRequestSchema,
 } from '@job-scout/shared';
 import { Hono } from 'hono';
+import { draftCoverNote } from '../../ai/coverNote.js';
 import { formatPay } from '../../core/parse/pay.js';
 import { canTransition, requiresCvSent, restoredStatus } from '../../core/transitions.js';
 import type { ApplicationRow } from '../../db/repos/applications.js';
@@ -92,6 +94,8 @@ function toItem(row: Row, postings: JobRow[]): GroupListItem {
     bestCvId: group.bestCvId,
     alsoPostedBy: alsoPostedBy(job.id, postings),
     newPostingsSinceAction: group.newPostingsSinceAction,
+    feedbackAdj: group.feedbackAdj ?? 0,
+    feedbackReasons: group.feedbackReasonsJson ?? [],
     application: toApplication(row.application),
     job: {
       title: job.title,
@@ -219,6 +223,53 @@ export const groupsRoute = new Hono<AppEnv>()
       updatedAt: now,
     });
     return c.json({ status: target });
+  })
+  /** Draft a cover note or recruiter message from one of your CVs (one AI call). */
+  .post('/:id/cover-note', validate('json', CoverNoteRequestSchema), async (c) => {
+    const deps = c.var.deps;
+    const { repos, clock } = deps;
+    const id = c.req.param('id');
+    const body = c.req.valid('json');
+    const found = await repos.groups.getWithJob(id);
+    if (!found) throw new AppError('NOT_FOUND', 'Job not found');
+
+    const cvs = await repos.cvs.list();
+    const cv =
+      cvs.find((x) => x.id === (body.cvId ?? found.group.bestCvId)) ?? cvs.find((x) => x.active);
+    if (!cv)
+      throw new AppError('VALIDATION', 'Upload a CV first so there is something to write from.');
+
+    const drafted = await draftCoverNote(deps, {
+      kind: body.kind,
+      tone: body.tone,
+      job: {
+        title: found.job.title,
+        employerName: found.job.employerName,
+        location: found.job.location,
+        payText: payTextOf(found.job),
+        descriptionText: found.job.descriptionText,
+      },
+      cvText: cv.textMd,
+      strengths: found.assessment?.resultJson?.strengths ?? [],
+    });
+    const note = {
+      id: crypto.randomUUID(),
+      groupId: id,
+      cvId: cv.id,
+      kind: body.kind,
+      tone: body.tone,
+      text: drafted.text,
+      createdAt: toIso(clock.now()),
+    };
+    await repos.coverNotes.insert(note);
+    return c.json(note, 201);
+  })
+  /** Earlier drafts for a job, newest first. */
+  .get('/:id/cover-notes', async (c) => {
+    const { repos } = c.var.deps;
+    const id = c.req.param('id');
+    if (!(await repos.groups.getById(id))) throw new AppError('NOT_FOUND', 'Job not found');
+    return c.json(await repos.coverNotes.listByGroup(id));
   })
   /** Save your notes on a job without changing its state. */
   .put('/:id/notes', validate('json', UpdateNotesRequestSchema), async (c) => {

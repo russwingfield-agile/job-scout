@@ -16,13 +16,16 @@ import { describeFilterReason } from '../../lib/jobFormat.js';
 import { formatNextScan, SKIP_REASONS } from '../../lib/triage.js';
 import { FilterBar, useInboxFilters } from './FilterBar.js';
 import { JobCard } from './JobCard.js';
+import type { DrawerTab } from './JobDrawer.js';
 import { SkipReasonPicker } from './SkipReasonPicker.js';
+import { SuggestionCards } from './SuggestionCards.js';
 
 const SHORTCUTS: [string, string][] = [
   ['j / k', 'Next / previous job'],
   ['a', 'Shortlist'],
   ['x', 'Skip (then 1–9 to give a reason)'],
   ['o', 'Open the advert on Reed'],
+  ['c', 'Write a cover note'],
   ['Enter', 'Open details'],
   ['?', 'Show or hide this help'],
 ];
@@ -87,8 +90,8 @@ export function InboxPage({ paused = false }: { paused?: boolean }) {
     setSkipping(null);
     act(item, { status: 'skipped', skipReason: reason }, 'Skipped');
   };
-  const openDetail = (item: GroupListItem) =>
-    navigate(`/job/${item.id}`, { state: { from: '/inbox' } });
+  const openDetail = (item: GroupListItem, tab?: DrawerTab) =>
+    navigate(`/job/${item.id}`, { state: { from: '/inbox', ...(tab ? { tab } : {}) } });
 
   useEffect(() => {
     if (paused) return;
@@ -116,6 +119,7 @@ export function InboxPage({ paused = false }: { paused?: boolean }) {
       else if (e.key === 'k') setFocusedId(items[Math.max(0, index - 1)]?.id ?? null);
       else if (!focused) return;
       else if (e.key === 'Enter') openDetail(focused);
+      else if (e.key === 'c') openDetail(focused, 'Cover note');
       else if (e.key === 'o' && focused.job.url) window.open(focused.job.url, '_blank', 'noopener');
       else if (decidable && e.key === 'a') shortlist(focused);
       else if (decidable && e.key === 'x') setSkipping(focused);
@@ -156,6 +160,8 @@ export function InboxPage({ paused = false }: { paused?: boolean }) {
           Keyboard shortcuts
         </Button>
       </div>
+
+      <SuggestionCards />
 
       <FilterBar filters={filters} cvs={cvs.data ?? []} />
 

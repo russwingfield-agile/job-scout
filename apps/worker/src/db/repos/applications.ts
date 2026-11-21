@@ -1,7 +1,7 @@
 import type { GroupStatus } from '@job-scout/shared';
-import { and, count, desc, eq, gte, inArray } from 'drizzle-orm';
+import { and, count, desc, eq, gte, inArray, isNotNull } from 'drizzle-orm';
 import type { Db } from '../client.js';
-import { applications, statusHistory } from '../schema.js';
+import { applications, jobGroups, jobs, statusHistory } from '../schema.js';
 
 export type ApplicationRow = typeof applications.$inferSelect;
 export type NewApplication = typeof applications.$inferInsert;
@@ -51,6 +51,72 @@ export function applicationsRepo(db: Db) {
         .from(statusHistory)
         .where(eq(statusHistory.groupId, groupId))
         .orderBy(desc(statusHistory.id));
+    },
+
+    /** Jobs from this employer you skipped as agency spam. */
+    async countAgencySpamSkips(employerName: string): Promise<number> {
+      const row = await db
+        .select({ n: count() })
+        .from(applications)
+        .innerJoin(jobGroups, eq(jobGroups.id, applications.groupId))
+        .innerJoin(jobs, eq(jobs.id, jobGroups.canonicalJobId))
+        .where(and(eq(applications.skipReason, 'agency_spam'), eq(jobs.employerName, employerName)))
+        .get();
+      return row?.n ?? 0;
+    },
+
+    /** Have you applied to a job from this employer? */
+    async hasAppliedTo(employerName: string): Promise<boolean> {
+      const row = await db
+        .select({ n: count() })
+        .from(applications)
+        .innerJoin(jobGroups, eq(jobGroups.id, applications.groupId))
+        .innerJoin(jobs, eq(jobs.id, jobGroups.canonicalJobId))
+        .where(and(isNotNull(applications.appliedAt), eq(jobs.employerName, employerName)))
+        .get();
+      return (row?.n ?? 0) > 0;
+    },
+
+    /**
+     * Posting ids of the jobs you most recently acted on in a way that says "more like this"
+     * (applied or shortlisted) or "less like this" (skipped as not your skills).
+     */
+    async recentJobIds(kind: 'wanted' | 'unwanted', limit: number): Promise<string[]> {
+      const where =
+        kind === 'wanted'
+          ? inArray(jobGroups.status, ['shortlisted', 'applied', 'interview', 'offer'])
+          : eq(applications.skipReason, 'not_my_skills');
+      const rows = await db
+        .select({ id: jobGroups.canonicalJobId })
+        .from(applications)
+        .innerJoin(jobGroups, eq(jobGroups.id, applications.groupId))
+        .where(where)
+        .orderBy(desc(applications.updatedAt))
+        .limit(limit);
+      return rows.flatMap((r) => (r.id === null ? [] : [r.id]));
+    },
+
+    /** Jobs skipped since `since`, with the pay they offered and which CV matched them best. */
+    async listSkipsSince(since: string) {
+      return db
+        .select({
+          reason: applications.skipReason,
+          bestCvId: jobGroups.bestCvId,
+          payMin: jobs.payMin,
+          payMax: jobs.payMax,
+          payPeriod: jobs.payPeriod,
+          annualisedMax: jobs.annualisedMax,
+        })
+        .from(applications)
+        .innerJoin(jobGroups, eq(jobGroups.id, applications.groupId))
+        .innerJoin(jobs, eq(jobs.id, jobGroups.canonicalJobId))
+        .where(
+          and(
+            eq(jobGroups.status, 'skipped'),
+            isNotNull(applications.skipReason),
+            gte(applications.updatedAt, since),
+          ),
+        );
     },
 
     /** How many times a job was moved to `to` since `since` (e.g. applications this week). */

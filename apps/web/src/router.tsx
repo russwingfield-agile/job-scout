@@ -2,7 +2,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from 're
 import { Shell } from './components/Shell.js';
 import { CvsPage } from './features/cvs/CvsPage.js';
 import { InboxPage } from './features/inbox/InboxPage.js';
-import { JobDrawer } from './features/inbox/JobDrawer.js';
+import { type DrawerTab, JobDrawer } from './features/inbox/JobDrawer.js';
 import { Placeholder } from './features/Placeholder.js';
 import { PipelinePage } from './features/pipeline/PipelinePage.js';
 import { RunsPage } from './features/runs/RunsPage.js';
@@ -22,12 +22,19 @@ const BUILT = new Set(['/inbox', '/pipeline', '/cvs', '/runs']);
 function JobRoute() {
   const { groupId } = useParams();
   const navigate = useNavigate();
-  const from = (useLocation().state as { from?: string } | null)?.from;
+  const state = useLocation().state as { from?: string; tab?: DrawerTab } | null;
+  const from = state?.from;
   const back = from === '/pipeline' ? '/pipeline' : '/inbox';
   return (
     <>
       {back === '/pipeline' ? <PipelinePage /> : <InboxPage paused />}
-      {groupId ? <JobDrawer groupId={groupId} onClose={() => navigate(back)} /> : null}
+      {groupId ? (
+        <JobDrawer
+          groupId={groupId}
+          onClose={() => navigate(back)}
+          initialTab={state?.tab ?? 'Overview'}
+        />
+      ) : null}
     </>
   );
 }

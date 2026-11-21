@@ -3,6 +3,8 @@ import { AssessmentResultSchema } from './assessment.js';
 import {
   ApplyRecommendationSchema,
   AssessmentStatusSchema,
+  CoverNoteKindSchema,
+  CoverNoteToneSchema,
   EmploymentTypeSchema,
   GroupStatusSchema,
   Ir35Schema,
@@ -128,6 +130,9 @@ export const GroupListItemSchema = z.object({
     .default([]),
   /** Postings that appeared after you acted on this job. */
   newPostingsSinceAction: z.number().int().default(0),
+  /** Points added or taken off the score because of your past choices, and why. */
+  feedbackAdj: z.number().default(0),
+  feedbackReasons: z.array(z.string()).default([]),
   /** What you recorded when you acted on it. */
   application: z
     .object({
@@ -257,3 +262,38 @@ export type ClearJobsResponse = z.infer<typeof ClearJobsResponseSchema>;
 /** PUT /api/groups/:id/notes */
 export const UpdateNotesRequestSchema = z.object({ notes: z.string().max(5_000) });
 export type UpdateNotesRequest = z.infer<typeof UpdateNotesRequestSchema>;
+
+/** POST /api/groups/:id/cover-note */
+export const CoverNoteRequestSchema = z.object({
+  /** Which CV to write from; defaults to the job's best CV. */
+  cvId: z.string().min(1).optional(),
+  tone: CoverNoteToneSchema.default('concise'),
+  kind: CoverNoteKindSchema.default('cover_note'),
+});
+export type CoverNoteRequest = z.input<typeof CoverNoteRequestSchema>;
+
+export const CoverNoteSchema = z.object({
+  id: z.string(),
+  groupId: z.string(),
+  cvId: z.string().nullable(),
+  kind: CoverNoteKindSchema,
+  tone: CoverNoteToneSchema,
+  text: z.string(),
+  createdAt: z.string(),
+});
+export type CoverNote = z.infer<typeof CoverNoteSchema>;
+export const CoverNoteListSchema = z.array(CoverNoteSchema);
+
+/** A change the app suggests to a search profile because of what you have skipped. */
+export const SuggestionSchema = z.object({
+  /** Stable: the same advice has the same id, so a dismissal sticks. */
+  id: z.string(),
+  profileId: z.string(),
+  kind: z.enum(['min_day_rate', 'radius', 'ir35']),
+  message: z.string(),
+  /** Apply label, e.g. "Raise to £600/day". */
+  actionLabel: z.string(),
+});
+export type Suggestion = z.infer<typeof SuggestionSchema>;
+export const SuggestionListSchema = z.array(SuggestionSchema);
+export const SuggestionIdRequestSchema = z.object({ id: z.string().min(1) });

@@ -34,6 +34,8 @@ const item = (
   bestCvId: 'cv1',
   alsoPostedBy: [],
   newPostingsSinceAction: 0,
+  feedbackAdj: 0,
+  feedbackReasons: [],
   application: null,
   job: {
     title: 'Enterprise Agile Coach',

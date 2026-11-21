@@ -12,6 +12,7 @@ import type { JobPatch } from '../db/repos/jobs.js';
 import { AppError } from '../lib/errors.js';
 import { dayKey, toIso } from '../lib/time.js';
 import { findDuplicate, joinGroup, refreshCanonical } from './dedupeJob.js';
+import { feedbackFor } from './feedback.js';
 import type { ProcessMessage } from './messages.js';
 import type { PipelineDeps } from './startRun.js';
 
@@ -237,6 +238,7 @@ export async function processJob(deps: PipelineDeps, msg: ProcessMessage): Promi
   await repos.groups.saveSimilarities(groupId, similarities);
 
   const best = bestCv(similarities);
+  const feedback = await feedbackFor(deps, { employerName: normalised.employerName, vector });
   const score = prefilterScore(
     {
       bestSimilarity: best?.similarity ?? null,
@@ -246,13 +248,15 @@ export async function processJob(deps: PipelineDeps, msg: ProcessMessage): Promi
       payDisclosed: normalised.payMin !== undefined || normalised.payMax !== undefined,
       ir35Outside:
         normalised.ir35 === 'outside' && CONTRACT_LIKE.includes(normalised.employmentType),
-      feedbackAdj: 0,
+      feedbackAdj: feedback.adj,
     },
     settings.weights,
   );
   await repos.groups.update(groupId, {
     status: 'prefiltered',
     prefilterScore: score,
+    feedbackAdj: feedback.adj,
+    feedbackReasonsJson: feedback.reasons,
     bestCvId: best?.cvId ?? null,
     lastSeenAt: now,
   });

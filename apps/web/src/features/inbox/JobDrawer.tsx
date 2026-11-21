@@ -7,15 +7,32 @@ import { useToast } from '../../components/ui/Toast.js';
 import { formatStarted } from '../../lib/format.js';
 import { postedAgo } from '../../lib/jobFormat.js';
 import { PIPELINE_STATUS_LABEL } from '../../lib/triage.js';
+import { CoverNotePanel } from './CoverNotePanel.js';
 import { ScoreBadge } from './JobCard.js';
 
-const TABS = ['Overview', 'Postings', 'Advert', 'Notes & history'] as const;
-type Tab = (typeof TABS)[number];
+export const DRAWER_TABS = [
+  'Overview',
+  'Postings',
+  'Advert',
+  'Cover note',
+  'Notes & history',
+] as const;
+export type DrawerTab = (typeof DRAWER_TABS)[number];
+const TABS = DRAWER_TABS;
+type Tab = DrawerTab;
 
 /** Side panel with everything about one job. Deep-linkable (/job/:id); Escape closes it. */
-export function JobDrawer({ groupId, onClose }: { groupId: string; onClose: () => void }) {
+export function JobDrawer({
+  groupId,
+  onClose,
+  initialTab = 'Overview',
+}: {
+  groupId: string;
+  onClose: () => void;
+  initialTab?: DrawerTab;
+}) {
   const query = useGroup(groupId);
-  const [tab, setTab] = useState<Tab>('Overview');
+  const [tab, setTab] = useState<Tab>(initialTab);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -77,6 +94,9 @@ export function JobDrawer({ groupId, onClose }: { groupId: string; onClose: () =
           {tab === 'Overview' ? <Overview detail={detail} /> : null}
           {tab === 'Postings' ? <Postings detail={detail} /> : null}
           {tab === 'Advert' ? <Advert detail={detail} /> : null}
+          {tab === 'Cover note' ? (
+            <CoverNotePanel groupId={groupId} defaultCvId={detail.item.bestCvId} />
+          ) : null}
           {tab === 'Notes & history' ? <NotesAndHistory detail={detail} /> : null}
         </>
       ) : null}
@@ -147,6 +167,20 @@ function Overview({ detail }: { detail: GroupDetail }) {
             : 'The AI has not assessed this job yet.'}
         </p>
       )}
+
+      {item.feedbackReasons.length > 0 ? (
+        <div>
+          <h4 className="mb-1 font-semibold">
+            How your past choices changed this score ({item.feedbackAdj > 0 ? '+' : ''}
+            {item.feedbackAdj})
+          </h4>
+          <ul className="grid gap-0.5">
+            {item.feedbackReasons.map((r) => (
+              <li key={r}>• {r}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       <div>
         <h4 className="mb-1 font-semibold">How each CV matches</h4>

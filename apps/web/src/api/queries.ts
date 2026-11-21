@@ -1,5 +1,8 @@
 import {
   ClearJobsResponseSchema,
+  CoverNoteListSchema,
+  type CoverNoteRequest,
+  CoverNoteSchema,
   CvDetailSchema,
   CvListResponseSchema,
   CvMutationResponseSchema,
@@ -15,6 +18,7 @@ import {
   SettingsSchema,
   StartRunResponseSchema,
   StatsResponseSchema,
+  SuggestionListSchema,
   type UpdateCvRequest,
   type UpdateGroupRequest,
   type UpdateSearchProfile,
@@ -242,3 +246,43 @@ export function useRescore(id: string) {
 }
 
 export type { GroupStatus };
+
+export const useCoverNotes = (groupId: string) =>
+  useQuery({
+    queryKey: ['coverNotes', groupId] as const,
+    queryFn: () => api(`/groups/${groupId}/cover-notes`, CoverNoteListSchema),
+  });
+
+export function useGenerateCoverNote(groupId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (req: CoverNoteRequest) =>
+      api(`/groups/${groupId}/cover-note`, CoverNoteSchema, {
+        method: 'POST',
+        body: JSON.stringify(req),
+      }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['coverNotes', groupId] }),
+  });
+}
+
+export const useSuggestions = () =>
+  useQuery({
+    queryKey: ['suggestions'] as const,
+    queryFn: () => api('/suggestions', SuggestionListSchema),
+  });
+
+/** Apply or dismiss a suggestion. Applying changes a search profile, so CVs are refreshed too. */
+export function useSuggestionAction(action: 'apply' | 'dismiss') {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api(`/suggestions/${action}`, z.object({}).passthrough(), {
+        method: 'POST',
+        body: JSON.stringify({ id }),
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['suggestions'] });
+      if (action === 'apply') void qc.invalidateQueries({ queryKey: keys.cvs });
+    },
+  });
+}
