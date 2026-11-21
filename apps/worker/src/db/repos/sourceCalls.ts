@@ -1,4 +1,4 @@
-import { count, eq } from 'drizzle-orm';
+import { and, count, eq, gte } from 'drizzle-orm';
 import type { Db } from '../client.js';
 import { sourceCalls } from '../schema.js';
 
@@ -10,12 +10,26 @@ export function sourceCallsRepo(db: Db) {
       await db.insert(sourceCalls).values(call);
     },
 
-    /** Upstream requests made so far by one run (for the per-run cap). */
-    async countByRun(runId: string): Promise<number> {
+    /** Upstream requests made so far by one run (for the per-run cap), optionally for one source. */
+    async countByRun(runId: string, source?: string): Promise<number> {
       const row = await db
         .select({ n: count() })
         .from(sourceCalls)
-        .where(eq(sourceCalls.runId, runId))
+        .where(
+          source === undefined
+            ? eq(sourceCalls.runId, runId)
+            : and(eq(sourceCalls.runId, runId), eq(sourceCalls.source, source)),
+        )
+        .get();
+      return row?.n ?? 0;
+    },
+
+    /** Requests made to one source since `since` (an ISO time), for its daily budget. */
+    async countBySourceSince(source: string, since: string): Promise<number> {
+      const row = await db
+        .select({ n: count() })
+        .from(sourceCalls)
+        .where(and(eq(sourceCalls.source, source), gte(sourceCalls.createdAt, since)))
         .get();
       return row?.n ?? 0;
     },

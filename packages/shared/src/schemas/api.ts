@@ -144,6 +144,8 @@ export const GroupListItemSchema = z.object({
     .nullable()
     .default(null),
   job: z.object({
+    /** Which job board the advert came from, e.g. "reed" or "adzuna". */
+    source: z.string().default('reed'),
     title: z.string().nullable(),
     employerName: z.string().nullable(),
     location: z.string().nullable(),

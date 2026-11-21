@@ -25,6 +25,7 @@ const listItem: GroupListItem = {
   feedbackReasons: ['−5: similar to jobs you skipped as not your skills'],
   application: null,
   job: {
+    source: 'reed',
     title: 'Agile Coach',
     employerName: 'Acme',
     location: 'London',

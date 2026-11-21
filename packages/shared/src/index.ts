@@ -1,3 +1,4 @@
+export * from './schemas/adzuna.js';
 export * from './schemas/api.js';
 export * from './schemas/assessment.js';
 export * from './schemas/cv.js';

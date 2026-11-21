@@ -41,6 +41,9 @@ export const DEFAULT_SETTINGS: Settings = {
     // Three runs a day × 250 stays inside the daily budget; the first run on an empty database
     // needs far more than the ~60 the original spec assumed for a steady-state run.
     reedCallsPerRunCap: 250,
+    // ASSUMPTION: Adzuna's free tier allows roughly this many calls a day; verify on your account.
+    adzunaDailyRequestBudget: 200,
+    adzunaCallsPerRunCap: 60,
     // ASSUMPTION: Workers AI free allocation is 10,000 neurons/day; verify and adjust in Settings.
     aiDailyNeuronBudget: 10_000,
     fallbackModelAtFraction: 0.8,
@@ -60,6 +63,7 @@ export const DEFAULT_SETTINGS: Settings = {
     payBandTolerance: 0.1,
     lookbackDays: 21,
     topK: 5,
+    excerptSimilarity: 0.7,
   },
   feedback: {
     agencySpamSkips: 3,

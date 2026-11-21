@@ -2,6 +2,7 @@ import {
   type DedupeJob,
   isActioned,
   isDuplicate,
+  isExcerptDuplicate,
   looksLikeSameRole,
   pickCanonical,
 } from '../core/dedupe.js';
@@ -23,7 +24,7 @@ export type DuplicateMatch = { groupId: string; jobId: string; similarity: numbe
  */
 export async function findDuplicate(
   deps: PipelineDeps,
-  job: { id: string } & DedupeJob,
+  job: { id: string; excerpt?: boolean } & DedupeJob,
   vector: number[],
 ): Promise<DuplicateMatch | null> {
   const { dedupe } = await deps.settings.get();
@@ -45,7 +46,13 @@ export async function findDuplicate(
     const values = byId.get(`job:${c.id}`);
     if (!values) continue;
     const similarity = cosine(vector, values);
-    if (!isDuplicate(similarity, job, { ...c, title: c.title ?? '' }, dedupe).dup) continue;
+    const other = { ...c, title: c.title ?? '' };
+    // A posting that is only an excerpt of its advert is compared by a different rule.
+    const excerpt = job.excerpt === true || deps.sources[c.source]?.inlineDetails === true;
+    const verdict = excerpt
+      ? isExcerptDuplicate(similarity, job, other, dedupe)
+      : isDuplicate(similarity, job, other, dedupe);
+    if (!verdict.dup) continue;
     if (best === null || similarity > best.similarity) {
       best = { groupId: c.groupId, jobId: c.id, similarity };
     }

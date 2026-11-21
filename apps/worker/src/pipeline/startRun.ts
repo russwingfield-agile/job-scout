@@ -14,7 +14,7 @@ const DAY_MS = 86_400_000;
 
 export type PipelineDeps = Pick<
   Deps,
-  'repos' | 'clock' | 'log' | 'settings' | 'source' | 'embedder' | 'vectors' | 'bus' | 'llm'
+  'repos' | 'clock' | 'log' | 'settings' | 'sources' | 'embedder' | 'vectors' | 'bus' | 'llm'
 >;
 
 export type StartRunInput = { trigger: 'cron'; slotKey: string } | { trigger: 'manual' };
@@ -59,15 +59,26 @@ export async function startRun(
     return { runId, queries: 0 };
   }
 
+  // One search per planned query per source. Reed keeps its original query keys; other sources
+  // are prefixed so their searches never collide with Reed's.
+  const searches = Object.keys(deps.sources).flatMap((sourceId) =>
+    planned.map((q) => ({
+      sourceId,
+      ...q,
+      queryKey: sourceId === 'reed' ? q.queryKey : `${sourceId}|${q.queryKey}`,
+    })),
+  );
+
   // Claim first (counts the work), then send: a lost send is caught by stale-run recovery.
-  const keys = planned.map((q) => enqueueFetchKey(runId, q.queryKey, 0));
+  const keys = searches.map((q) => enqueueFetchKey(runId, q.queryKey, 0));
   const claimed = await repos.runs.claimMany(runId, keys, 'ingest', startedAt);
-  const fetchMessages: FetchMessage[] = planned
+  const fetchMessages: FetchMessage[] = searches
     .filter((q) => claimed.has(enqueueFetchKey(runId, q.queryKey, 0)))
     .map((q) => ({
       v: 1,
       type: 'fetch',
       runId,
+      source: q.sourceId,
       profileIds: q.profileIds,
       queryKey: q.queryKey,
       query: q.query,

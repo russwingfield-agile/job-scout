@@ -63,6 +63,9 @@ export const BudgetsSettingsSchema = z.object({
   maxPagesPerQuery: posInt,
   reedDailyRequestBudget: nonNegInt,
   reedCallsPerRunCap: nonNegInt,
+  /** Adzuna request limits (its free tier is small; see docs/DECISIONS.md). */
+  adzunaDailyRequestBudget: nonNegInt,
+  adzunaCallsPerRunCap: nonNegInt,
   aiDailyNeuronBudget: nonNegInt,
   /** switch to the fallback model once this fraction of the neuron budget is spent */
   fallbackModelAtFraction: fraction,
@@ -83,6 +86,8 @@ export const DedupeSettingsSchema = z.object({
   payBandTolerance: fraction,
   lookbackDays: posInt,
   topK: posInt,
+  /** Text similarity needed to treat an excerpt-only posting as the same role as another. */
+  excerptSimilarity: fraction,
 });
 
 export const FeedbackSettingsSchema = z.object({

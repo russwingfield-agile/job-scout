@@ -15,7 +15,7 @@ export type NormaliseContext = {
 };
 
 /** Employer names that clearly belong to a recruiter. `null` (unknown) otherwise, never `false`. */
-const AGENCY_NAME =
+export const AGENCY_NAME =
   /recruit|staffing|resourcing|personnel|headhunt|talent|executive search|\bagency\b/i;
 
 const READ_ONLY_TEXT_CHARS = 2_000;

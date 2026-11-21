@@ -1,4 +1,6 @@
 import { accessVerifierFromEnv } from './adapters/access.js';
+import { AdzunaAdapter } from './adapters/adzuna/adapter.js';
+import { AdzunaClient } from './adapters/adzuna/client.js';
 import { systemClock } from './adapters/clock.js';
 import { D1VectorStore } from './adapters/d1Vectors.js';
 import { QueueBus, type QueueLike } from './adapters/queues.js';
@@ -35,7 +37,10 @@ export type Deps = {
   settings: SettingsService;
   /** Null when Cloudflare Access is not configured (the API then rejects all non-public calls). */
   access: AccessVerifier | null;
+  /** The primary source (Reed). */
   source: SourceAdapter;
+  /** Every source that is switched on, by id (always includes the primary one). */
+  sources: Record<string, SourceAdapter>;
   blobs: BlobStore;
   docs: DocParser;
   embedder: Embedder;
@@ -51,6 +56,9 @@ type OptionalBindings = {
   FETCH_Q?: QueueLike;
   PROCESS_Q?: QueueLike;
   SCORE_Q?: QueueLike;
+  /** Adzuna is used only when both are set (Cloudflare secrets). */
+  ADZUNA_APP_ID?: string;
+  ADZUNA_APP_KEY?: string;
 };
 
 /**
@@ -79,6 +87,21 @@ export function createContainer(env: Env, overrides: Partial<Deps> = {}): Deps {
     );
 
   const optional = env as unknown as OptionalBindings;
+  const sources: Record<string, SourceAdapter> = overrides.sources ?? {
+    [source.id]: source,
+    ...(optional.ADZUNA_APP_ID && optional.ADZUNA_APP_KEY
+      ? {
+          adzuna: new AdzunaAdapter(
+            new AdzunaClient({
+              appId: optional.ADZUNA_APP_ID,
+              appKey: optional.ADZUNA_APP_KEY,
+              recorder: createSourceCallRecorder({ repos, clock }),
+              log,
+            }),
+          ),
+        }
+      : {}),
+  };
   const ai = env.AI as unknown as AiLike;
   // The embedding model is fixed at construction: changing it invalidates every stored vector, so
   // it is deliberately not hot-swappable through Settings.
@@ -92,6 +115,7 @@ export function createContainer(env: Env, overrides: Partial<Deps> = {}): Deps {
     settings,
     access,
     source,
+    sources,
     blobs:
       overrides.blobs ??
       (optional.CVS ? new R2Blobs(optional.CVS) : unavailable<BlobStore>('CV storage (R2)')),

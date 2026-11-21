@@ -21,6 +21,8 @@ export const FetchMessageSchema = z.object({
   v: z.literal(1),
   type: z.literal('fetch'),
   runId: z.string(),
+  /** Which job source to search. Messages queued before there were several are Reed's. */
+  source: z.string().default('reed'),
   profileIds: z.array(z.string()).min(1),
   queryKey: z.string(),
   query: SearchQuerySchema,

@@ -1,4 +1,4 @@
-import { canSpendReed } from '../core/budget.js';
+import { callLimitsFor, canSpendCalls } from '../core/budget.js';
 import { AppError } from '../lib/errors.js';
 import { dayKey, toIso } from '../lib/time.js';
 import {
@@ -23,22 +23,32 @@ const newestFirst = (a: { postedAt: string | null }, b: { postedAt: string | nul
  * Everything here is idempotent, so a redelivered message repeats no work and moves no counter twice.
  */
 export async function fetchPage(deps: PipelineDeps, msg: FetchMessage): Promise<void> {
-  const { repos, clock, source, bus } = deps;
+  const { repos, clock, bus } = deps;
+  const source = deps.sources[msg.source];
+  if (!source) {
+    throw new AppError('NOT_CONFIGURED', `The ${msg.source} job source is not switched on`, {
+      retryable: false,
+    });
+  }
   const { budgets, ingest } = await deps.settings.get();
   const now = toIso(clock.now());
   const today = dayKey(clock.now());
 
   const usageBefore = await repos.usage.get(today);
-  const decision = canSpendReed(
+  const usedToday =
+    source.id === 'reed'
+      ? (usageBefore?.reedCalls ?? 0)
+      : await repos.sourceCalls.countBySourceSince(source.id, `${today}T00:00:00.000Z`);
+  const decision = canSpendCalls(
     {
-      usedToday: usageBefore?.reedCalls ?? 0,
-      usedThisRun: await repos.sourceCalls.countByRun(msg.runId),
+      usedToday,
+      usedThisRun: await repos.sourceCalls.countByRun(msg.runId, source.id),
       n: 1,
     },
-    budgets,
+    callLimitsFor(source.id, budgets),
   );
   if (!decision.ok) {
-    throw new AppError('BUDGET_EXHAUSTED', `Reed budget exhausted (${decision.reason})`);
+    throw new AppError('BUDGET_EXHAUSTED', `${source.id} budget exhausted (${decision.reason})`);
   }
 
   const { refs, hasMore } = await source.search(msg.query, msg.page, { runId: msg.runId });
@@ -68,6 +78,7 @@ export async function fetchPage(deps: PipelineDeps, msg: FetchMessage): Promise<
         location: r.location,
         postedAt: r.postedAt,
         createdAt: now,
+        ...(r.raw === undefined ? {} : { rawJson: JSON.stringify(r.raw) }),
         ...(old ? { stage: 'processed' as const, filterReason: 'too_old' } : {}),
       };
     }),
@@ -105,7 +116,7 @@ export async function fetchPage(deps: PipelineDeps, msg: FetchMessage): Promise<
     repos.runs.countClaims('enq:process', msg.runId),
     repos.runs.countClaims('done:process', msg.runId),
     repos.usage.get(today),
-    repos.sourceCalls.countByRun(msg.runId),
+    repos.sourceCalls.countByRun(msg.runId, 'reed'),
   ]);
   const inFlight = queued - finished; // queued adverts that will each make a call
   const room = Math.max(
@@ -115,7 +126,8 @@ export async function fetchPage(deps: PipelineDeps, msg: FetchMessage): Promise<
       budgets.reedDailyRequestBudget - (usageNow?.reedCalls ?? 0) - inFlight - NEXT_PAGE_RESERVE,
     ),
   );
-  const affordable = pending.slice(0, room);
+  // Sources that return the advert in the search need no further request, so nothing limits them.
+  const affordable = source.inlineDetails ? pending : pending.slice(0, room);
   await repos.runs.bumpCount(msg.runId, 'deferred', pending.length - affordable.length);
 
   // Claim before sending, once per run: a job found by two queries, or redelivered with this

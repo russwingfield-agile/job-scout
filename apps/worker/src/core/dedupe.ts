@@ -3,12 +3,23 @@ import { normaliseTitle, tokenSetRatio } from './parse/title.js';
 
 type DedupeSettings = Settings['dedupe'];
 
+const COMPANY_NOISE = /\b(ltd|limited|plc|llp|uk|group|the)\b/g;
+
+/** "Acme Recruitment Ltd." and "acme recruitment" are the same employer. */
+export const normaliseEmployer = (name: string | null | undefined): string =>
+  (name ?? '')
+    .toLowerCase()
+    .replace(COMPANY_NOISE, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
 /** What we compare when deciding whether two postings are the same role. */
 export type DedupeJob = {
   title: string;
   location: string | null;
   annualisedMin: number | null;
   annualisedMax: number | null;
+  employerName?: string | null | undefined;
 };
 
 export type DedupeWhy = 'title' | 'pay_and_location';
@@ -80,6 +91,27 @@ export function isDuplicate(
   if (similarity < settings.similarity) return { dup: false, why: null };
   const { match, why } = looksLikeSameRole(a, b, settings);
   return { dup: match, why };
+}
+
+/**
+ * Duplicate test when one posting is only an excerpt of its advert (a source that returns short
+ * descriptions). Its text can never closely match a full advert, so instead of the normal
+ * similarity bar: the titles must match, the city must match, and either the employer is the same
+ * or the (looser) `excerptSimilarity` is met.
+ */
+export function isExcerptDuplicate(
+  similarity: number,
+  a: DedupeJob,
+  b: DedupeJob,
+  settings: DedupeSettings,
+): { dup: boolean; why: DedupeWhy | null } {
+  const { titleScore } = looksLikeSameRole(a, b, settings);
+  if (titleScore < settings.titleTokenSetRatio || !sameCity(a, b)) return { dup: false, why: null };
+  const employer = normaliseEmployer(a.employerName);
+  const sameEmployer = employer !== '' && employer === normaliseEmployer(b.employerName);
+  return sameEmployer || similarity >= settings.excerptSimilarity
+    ? { dup: true, why: 'title' }
+    : { dup: false, why: null };
 }
 
 /** The facts used to choose which posting represents a group. */

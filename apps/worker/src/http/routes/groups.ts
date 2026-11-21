@@ -98,6 +98,7 @@ function toItem(row: Row, postings: JobRow[]): GroupListItem {
     feedbackReasons: group.feedbackReasonsJson ?? [],
     application: toApplication(row.application),
     job: {
+      source: job.source,
       title: job.title,
       employerName: job.employerName,
       location: job.location,

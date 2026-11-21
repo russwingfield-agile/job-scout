@@ -30,6 +30,8 @@ export const DEFAULT_SETTINGS_FOR_TEST: Settings = {
     maxPagesPerQuery: 3,
     reedDailyRequestBudget: 900,
     reedCallsPerRunCap: 250,
+    adzunaDailyRequestBudget: 200,
+    adzunaCallsPerRunCap: 60,
     aiDailyNeuronBudget: 10_000,
     fallbackModelAtFraction: 0.8,
     staleRunMinutes: 30,
@@ -48,6 +50,7 @@ export const DEFAULT_SETTINGS_FOR_TEST: Settings = {
     payBandTolerance: 0.1,
     lookbackDays: 21,
     topK: 5,
+    excerptSimilarity: 0.7,
   },
   feedback: {
     agencySpamSkips: 3,

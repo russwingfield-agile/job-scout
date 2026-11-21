@@ -11,6 +11,7 @@ const BAND_STYLE = {
   low: 'border-[var(--border)] text-[var(--muted)]',
 } as const;
 
+const SOURCE_LABEL: Record<string, string> = { reed: 'Reed', adzuna: 'Adzuna' };
 const MODE_LABEL = { remote: 'Remote', hybrid: 'Hybrid', onsite: 'On site' } as const;
 const IR35_LABEL = { outside: 'Outside IR35', inside: 'Inside IR35' } as const;
 
@@ -119,6 +120,11 @@ export const JobCard = forwardRef<HTMLElement, Props>(function JobCard(
               {assessment?.onsiteDaysPerWeek
                 ? ` · ${assessment.onsiteDaysPerWeek} days on site`
                 : ''}
+            </li>
+          ) : null}
+          {job.source !== 'reed' ? (
+            <li className="rounded-full border border-[var(--border)] px-2 py-0.5">
+              via {SOURCE_LABEL[job.source] ?? job.source}
             </li>
           ) : null}
           {item.bestCv ? (

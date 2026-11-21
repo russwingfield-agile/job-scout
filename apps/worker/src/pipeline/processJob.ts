@@ -64,9 +64,15 @@ function jobColumns(
  * (De-duplication lands in M6: until then every job gets its own group.)
  */
 export async function processJob(deps: PipelineDeps, msg: ProcessMessage): Promise<void> {
-  const { repos, clock, source, embedder, vectors } = deps;
+  const { repos, clock, embedder, vectors } = deps;
   const job = await repos.jobs.getById(msg.jobId);
   if (!job || job.stage === 'processed') return;
+  const source = deps.sources[job.source];
+  if (!source) {
+    throw new AppError('NOT_CONFIGURED', `The ${job.source} job source is not switched on`, {
+      retryable: false,
+    });
+  }
 
   const settings = await deps.settings.get();
   const now = toIso(clock.now());
@@ -83,12 +89,14 @@ export async function processJob(deps: PipelineDeps, msg: ProcessMessage): Promi
 
   // 1. The full advert (one Reed call), or the copy stored by an earlier attempt.
   let raw: unknown;
-  if (job.stage === 'ref' || job.rawJson === null) {
+  // Sources that return the whole advert with the search keep it from then on: nothing to fetch.
+  const needsFetch = job.rawJson === null || (job.stage === 'ref' && !source.inlineDetails);
+  if (needsFetch) {
     const usage = await repos.usage.get(dayKey(clock.now()));
     const decision = canSpendReed(
       {
         usedToday: usage?.reedCalls ?? 0,
-        usedThisRun: await repos.sourceCalls.countByRun(msg.runId),
+        usedThisRun: await repos.sourceCalls.countByRun(msg.runId, 'reed'),
         n: 1,
       },
       settings.budgets,
@@ -111,7 +119,7 @@ export async function processJob(deps: PipelineDeps, msg: ProcessMessage): Promi
       throw err;
     }
   } else {
-    raw = JSON.parse(job.rawJson);
+    raw = JSON.parse(job.rawJson as string);
   }
 
   // 2. Normalise and store.
@@ -184,6 +192,8 @@ export async function processJob(deps: PipelineDeps, msg: ProcessMessage): Promi
     id: job.id,
     title: normalised.title,
     location: normalised.location,
+    employerName: normalised.employerName,
+    excerpt: source.inlineDetails === true,
     annualisedMin: annual.min,
     annualisedMax: annual.max,
   };

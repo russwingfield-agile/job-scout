@@ -142,3 +142,10 @@ deployed, because `wrangler.jsonc` binds it and a deploy fails if the queue is m
 - **AI allowance:** the header shows today's AI use. When it is spent, jobs wait ("deferred") and are assessed in the next scan after the allowance resets (midnight UTC).
 - **Reed key:** rotate it in Cloudflare → Workers & Pages → `job-scout` → Settings → Variables and Secrets → `REED_API_KEY`.
 - **Failed messages** end up in the `job-scout-dlq` queue; the Runs page shows each run's errors.
+
+## Adding Adzuna as a second job source
+
+1. Create a free account at developer.adzuna.com and copy the **Application ID** and **Application Key** (Dashboard / API Access).
+2. Cloudflare → Workers & Pages → `job-scout` → Settings → Variables and Secrets → Add: type **Secret**, name `ADZUNA_APP_ID`, paste the ID; add a second secret `ADZUNA_APP_KEY` with the key; Deploy.
+3. Click **Run now**. The Runs page "Reed calls" column counts Reed only; Adzuna's calls are in each run's detail. Jobs from Adzuna show "via Adzuna" on their card.
+4. To switch it off, delete either secret. To limit use, lower the Adzuna limits in the settings (`budgets.adzunaDailyRequestBudget`).

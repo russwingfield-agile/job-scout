@@ -20,6 +20,7 @@ const fetchMsg = (page: number): PipelineMessage => ({
   v: 1,
   type: 'fetch',
   runId: 'r',
+  source: 'reed',
   profileIds: ['p'],
   queryKey: 'k',
   query: { keywords: 'k', location: null, radiusMiles: 25, employmentTypes: [], minSalary: null },

@@ -21,6 +21,11 @@ export type RawJobRef = {
   location: string;
   postedAt: string | null;
   applicationsCount: number | null;
+  /**
+   * The whole advert, for sources whose search already returns it (see `inlineDetails`). Stored
+   * as `jobs.raw_json` so no second request is needed.
+   */
+  raw?: unknown;
 };
 
 /** The source's full advert, kept verbatim (stored as `jobs.raw_json`). */
@@ -30,6 +35,11 @@ export type SourceCallContext = { runId?: string | undefined };
 
 export interface SourceAdapter {
   readonly id: string;
+  /**
+   * True when search results carry the advert itself, so there is no per-advert request (and no
+   * request budget to spend on it). The text is then usually only an excerpt of the full advert.
+   */
+  readonly inlineDetails?: boolean;
   /** `page` is zero-based. */
   search(
     q: SearchQuery,

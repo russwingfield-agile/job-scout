@@ -91,6 +91,8 @@ export function jobsRepo(db: Db) {
         .select({
           id: jobs.id,
           groupId: jobs.groupId,
+          source: jobs.source,
+          employerName: jobs.employerName,
           title: jobs.title,
           location: jobs.location,
           annualisedMin: jobs.annualisedMin,
