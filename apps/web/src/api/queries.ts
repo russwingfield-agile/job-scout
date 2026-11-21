@@ -6,6 +6,7 @@ import {
   CvDetailSchema,
   CvListResponseSchema,
   CvMutationResponseSchema,
+  DeleteAllDataResponseSchema,
   GroupDetailSchema,
   type GroupListItem,
   GroupListResponseSchema,
@@ -15,6 +16,7 @@ import {
   RunListResponseSchema,
   SearchProfileSchema,
   type Settings,
+  type SettingsPatch,
   SettingsSchema,
   StartRunResponseSchema,
   StatsResponseSchema,
@@ -284,5 +286,33 @@ export function useSuggestionAction(action: 'apply' | 'dismiss') {
       void qc.invalidateQueries({ queryKey: ['suggestions'] });
       if (action === 'apply') void qc.invalidateQueries({ queryKey: keys.cvs });
     },
+  });
+}
+
+/** The whole Settings object (the Settings page edits several sections of it). */
+export const useAllSettings = () =>
+  useQuery({
+    queryKey: ['settings', 'all'] as const,
+    queryFn: () => api('/settings', SettingsSchema),
+  });
+
+export function useUpdateSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (patch: SettingsPatch) =>
+      api('/settings', SettingsSchema, { method: 'PUT', body: JSON.stringify(patch) }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['settings'] }),
+  });
+}
+
+export function useDeleteAllData() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (confirm: string) =>
+      api('/data', DeleteAllDataResponseSchema, {
+        method: 'DELETE',
+        body: JSON.stringify({ confirm }),
+      }),
+    onSuccess: () => void qc.invalidateQueries(),
   });
 }

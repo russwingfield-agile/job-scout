@@ -6,6 +6,7 @@ import { type DrawerTab, JobDrawer } from './features/inbox/JobDrawer.js';
 import { Placeholder } from './features/Placeholder.js';
 import { PipelinePage } from './features/pipeline/PipelinePage.js';
 import { RunsPage } from './features/runs/RunsPage.js';
+import { SettingsPage } from './features/settings/SettingsPage.js';
 
 export const NAV_ITEMS = [
   { to: '/inbox', label: 'Inbox' },
@@ -16,7 +17,7 @@ export const NAV_ITEMS = [
 ] as const;
 
 /** Pages that are built; the rest show a placeholder until their milestone. */
-const BUILT = new Set(['/inbox', '/pipeline', '/cvs', '/runs']);
+const BUILT = new Set(['/inbox', '/pipeline', '/cvs', '/settings', '/runs']);
 
 /** /job/:groupId — the detail drawer over whichever page you came from (the Inbox when linked directly). */
 function JobRoute() {
@@ -48,6 +49,7 @@ export function AppRoutes() {
         <Route path="/job/:groupId" element={<JobRoute />} />
         <Route path="/pipeline" element={<PipelinePage />} />
         <Route path="/cvs" element={<CvsPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
         <Route path="/runs" element={<RunsPage />} />
         {NAV_ITEMS.filter((item) => !BUILT.has(item.to)).map((item) => (
           <Route key={item.to} path={item.to} element={<Placeholder title={item.label} />} />

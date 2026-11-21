@@ -59,9 +59,8 @@ describe('app shell', () => {
     expect(await screen.findByRole('list', { name: 'Today' })).toHaveTextContent('0 new today');
   });
 
-  it('shows a placeholder for pages that are not built yet', () => {
-    renderAt('/settings');
-    expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
-    expect(screen.getByText(/Coming in a later milestone/)).toBeInTheDocument();
+  it('shows a not-found page for an unknown address', () => {
+    renderAt('/nowhere');
+    expect(screen.getByRole('heading', { name: 'Not found' })).toBeInTheDocument();
   });
 });

@@ -297,3 +297,12 @@ export const SuggestionSchema = z.object({
 export type Suggestion = z.infer<typeof SuggestionSchema>;
 export const SuggestionListSchema = z.array(SuggestionSchema);
 export const SuggestionIdRequestSchema = z.object({ id: z.string().min(1) });
+
+/** DELETE /api/data: wipe every job, CV and run. The phrase must be typed exactly. */
+export const DeleteAllDataRequestSchema = z.object({ confirm: z.string().max(100) });
+export type DeleteAllDataRequest = z.infer<typeof DeleteAllDataRequestSchema>;
+export const DeleteAllDataResponseSchema = z.object({
+  cvs: z.number().int(),
+  jobs: z.number().int(),
+});
+export type DeleteAllDataResponse = z.infer<typeof DeleteAllDataResponseSchema>;

@@ -3,7 +3,9 @@ import { createContainer, type Deps } from '../container.js';
 import { auth } from './middleware/auth.js';
 import { onError, onNotFound } from './middleware/errors.js';
 import { requestId } from './middleware/requestId.js';
+import { security } from './middleware/security.js';
 import { cvsRoute } from './routes/cvs.js';
+import { dataRoute } from './routes/data.js';
 import { devRoute } from './routes/dev.js';
 import { groupsRoute } from './routes/groups.js';
 import { healthRoute } from './routes/health.js';
@@ -19,6 +21,7 @@ export function createApp(makeDeps: (env: Env) => Deps = (env) => createContaine
   const api = new Hono<AppEnv>().basePath('/api');
 
   api.use('*', requestId);
+  api.use('*', security);
   api.use('*', async (c, next) => {
     c.set('deps', makeDeps(c.env));
     await next();
@@ -36,6 +39,7 @@ export function createApp(makeDeps: (env: Env) => Deps = (env) => createContaine
     .route('/stats', statsRoute)
     .route('/suggestions', suggestionsRoute)
     .route('/runs', runsRoute)
+    .route('/data', dataRoute)
     .route('/dev', devRoute);
 }
 

@@ -6,6 +6,7 @@ import { jobEmbeddingText } from '../core/embedText.js';
 import { evaluateAcrossProfiles } from '../core/filters.js';
 import { approxTokens } from '../core/neurons.js';
 import { annualise, formatPay } from '../core/parse/pay.js';
+import { sanitiseHtml } from '../core/sanitiseHtml.js';
 import { bestCv, prefilterScore, titleMatchesProfile } from '../core/scoring/prefilter.js';
 import { cosine } from '../core/vectors.js';
 import type { JobPatch } from '../db/repos/jobs.js';
@@ -50,7 +51,7 @@ function jobColumns(
     postedAt: n.postedAt,
     expiresAt: n.expiresAt ?? null,
     descriptionText: n.descriptionText,
-    descriptionHtml: n.descriptionHtml,
+    descriptionHtml: sanitiseHtml(n.descriptionHtml),
     applicationsCount: n.applicationsCount ?? null,
     rawJson,
     stage: 'detailed',

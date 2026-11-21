@@ -132,6 +132,11 @@ export function jobsRepo(db: Db) {
         .get();
     },
 
+    /** Ids of every stored posting (used when deleting all data). */
+    async listAllIds(): Promise<string[]> {
+      return (await db.select({ id: jobs.id }).from(jobs)).map((r) => r.id);
+    },
+
     /** Every posting in the given groups. */
     async listByGroups(groupIds: string[]): Promise<JobRow[]> {
       const rows: JobRow[] = [];

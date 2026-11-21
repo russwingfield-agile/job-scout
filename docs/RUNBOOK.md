@@ -133,3 +133,12 @@ Until then, "Run now" shows "Job queues is not configured" and scheduled slots r
 The AI-assessment step needs one more queue. Cloudflare → Workers & Pages → Queues → Create queue → name it exactly
 `score-q` (default jurisdiction). The deploy token already has Queues permission. It must exist **before** the M7 code is
 deployed, because `wrangler.jsonc` binds it and a deploy fails if the queue is missing.
+
+## Day-to-day
+
+- **Scans** run on the schedule in Settings (UK time). **Run now** on the Runs page starts one by hand.
+- **Start fresh** after changing a CV, profile or filters: Inbox → *Clear all found jobs*, then Run now. Jobs you shortlisted, applied for or skipped are kept.
+- **Delete everything** (jobs, CVs, files, history; settings stay): Settings → Danger zone, type `DELETE EVERYTHING`.
+- **AI allowance:** the header shows today's AI use. When it is spent, jobs wait ("deferred") and are assessed in the next scan after the allowance resets (midnight UTC).
+- **Reed key:** rotate it in Cloudflare → Workers & Pages → `job-scout` → Settings → Variables and Secrets → `REED_API_KEY`.
+- **Failed messages** end up in the `job-scout-dlq` queue; the Runs page shows each run's errors.
